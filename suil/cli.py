@@ -16,9 +16,11 @@ def main(ctx):
 @click.option('--role', 'roles', multiple=True, help='Role to deploy, repeatable.')
 @click.option('--node', 'nodes', multiple=True, help='Node to deploy, repeatable.')
 @click.option('--module', 'modules', multiple=True, help='Narrow the run to these modules.')
-def apply(roles, nodes, modules):
+@click.option('--force', is_flag=True, help='Run the modules even when nothing changed.')
+@click.option('--confirm', is_flag=True, help='Already confirmed: do not ask before applying.')
+def apply(roles, nodes, modules, force, confirm):
     """Apply the modules of the selected roles and nodes."""
     if not roles and not nodes:
         raise click.UsageError('give at least one --role or --node')
 
-    deployment(roles=roles, nodes=nodes, modules=modules)
+    deployment(roles=roles, nodes=nodes, modules=modules, force=force, confirm=confirm)

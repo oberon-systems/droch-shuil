@@ -1,8 +1,7 @@
 import questionary
 
 from suil.config import cfg
-from suil.deployment import deployment, deployment_targets
-from suil.directory import directory
+from suil.deployment import deployment
 from suil.libs import roles_collect
 
 
@@ -25,29 +24,7 @@ def roles_select() -> list[str]:
     )
 
 
-def nodes_select(roles: list[str]) -> list[str]:
-    return select(
-        'Please select nodes to run the deployment against:\n',
-        deployment_targets(roles=roles),
-    )
-
-
-def modules_select(nodes: list[str]) -> list[str]:
-    modules = []
-
-    for node in nodes:
-        for module in directory.node(node).modules:
-            if module not in modules:
-                modules.append(module)
-
-    return select('Please select modules to run:\n', modules)
-
-
 def tui():
     questionary.print('\n=== Balor Suil: an infrastructure manager ===\n\n')
 
-    roles = roles_select()
-    nodes = nodes_select(roles)
-    modules = modules_select(nodes)
-
-    return deployment(nodes=nodes, modules=modules)
+    return deployment(roles=roles_select())
