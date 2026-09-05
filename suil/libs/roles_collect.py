@@ -1,6 +1,7 @@
 from os.path import splitext
 from pathlib import Path
 
+
 def roles_collect(roles_dir: Path) -> set[str]:
     roles = set()
 

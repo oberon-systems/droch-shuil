@@ -2,6 +2,7 @@ from pathlib import Path
 
 from .yaml_load import yaml_load
 
+
 def role_get_nodes(role: str, nodes_dir: Path) -> set[str]:
     nodes = set()
 

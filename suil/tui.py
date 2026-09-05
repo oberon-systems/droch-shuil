@@ -1,32 +1,53 @@
 import questionary
+
 from suil.config import cfg
-from suil.libs import roles_collect, role_get_nodes, node_get_role, hierarchy_load
+from suil.deployment import deployment, deployment_targets
+from suil.directory import directory
+from suil.libs import roles_collect
+
+
+def select(message: str, choices) -> list[str]:
+    if not choices:
+        return []
+
+    return questionary.checkbox(
+        message,
+        sorted(choices),
+        use_jk_keys=False,
+        use_search_filter=True,
+    ).ask() or []
+
 
 def roles_select() -> list[str]:
+    return select(
+        'Please select roles for a list for run deployment:\n',
+        roles_collect(cfg.roles_dir),
+    )
 
-    answer = []
 
-    if roles := roles_collect(cfg.roles_dir):
-        answer = questionary.checkbox(
-            'Please select roles for a list for run deployment:\n',
-            list(roles),
-        ).ask()
-    return answer
+def nodes_select(roles: list[str]) -> list[str]:
+    return select(
+        'Please select nodes to run the deployment against:\n',
+        deployment_targets(roles=roles),
+    )
 
-def main():
 
-    questionary.print('\n=== Balor Suil: an infrastructure manager ===\n\n')
-    roles = roles_select()
-
-    for role in roles:
-        nodes = role_get_nodes(role, cfg.nodes_dir)
-
-    print(nodes)
+def modules_select(nodes: list[str]) -> list[str]:
+    modules = []
 
     for node in nodes:
-        print(node_get_role(node,cfg.nodes_dir))
+        for module in directory.node(node).modules:
+            if module not in modules:
+                modules.append(module)
+
+    return select('Please select modules to run:\n', modules)
 
 
-    hierarch = hierarchy_load(cfg.hierarchy_file)
-    print(hierarch)
-    # todo: run deploy
+def tui():
+    questionary.print('\n=== Balor Suil: an infrastructure manager ===\n\n')
+
+    roles = roles_select()
+    nodes = nodes_select(roles)
+    modules = modules_select(nodes)
+
+    return deployment(nodes=nodes, modules=modules)
