@@ -5,7 +5,7 @@ from pathlib import Path
 import yaml
 
 from suil.errors import DataError
-from suil.models import Secret, Tagged
+from suil.models import Lookup, Secret, Tagged
 
 # The block form is a plain string by the time PyYAML is done with it: a folded
 # scalar collapses the newlines and leaves '!ENC[ <b64> ]\n'.
@@ -36,7 +36,13 @@ def _tagged(strategy):
     return constructor
 
 
+def _lookup(loader, node):
+    return Lookup(loader.construct_mapping(node, deep=True)
+                  if isinstance(node, yaml.MappingNode) else loader.construct_scalar(node))
+
+
 SuilLoader.add_multi_constructor('!ENC[', _enc_tag)
+SuilLoader.add_constructor('!LOOKUP', _lookup)
 
 for _strategy in Tagged.STRATEGIES:
     SuilLoader.add_constructor('!' + _strategy, _tagged(_strategy))

@@ -41,6 +41,10 @@ from .string_encrypt import string_encrypt
 from .string_decrypt import string_decrypt
 from .config_strip_secrets import config_reveal_secrets, config_strip_secrets
 
+# inventory lookups
+from .inventory_lookup import inventory_lookup
+from .config_expand_lookups import config_expand_lookups
+
 # misc and utils
 from .deep_merge import deep_merge, deep_merge_unwrap
 from .yaml_load import yaml_load
@@ -79,6 +83,8 @@ __all__ = [
     'string_decrypt',
     'config_reveal_secrets',
     'config_strip_secrets',
+    'inventory_lookup',
+    'config_expand_lookups',
     'deep_merge',
     'deep_merge_unwrap',
     'yaml_load',

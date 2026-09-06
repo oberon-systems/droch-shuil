@@ -1,5 +1,6 @@
 from suil.config import cfg
-from suil.libs import deep_merge, deep_merge_unwrap, module_get_defaults, module_get_order, role_get_nodes, yaml_load
+from suil.libs import (config_expand_lookups, deep_merge, deep_merge_unwrap, inventory_lookup,
+                       module_get_defaults, module_get_order, nodes_collect, role_get_nodes, yaml_load)
 
 
 class NodeStorage:
@@ -41,6 +42,7 @@ class Directory:
     def __init__(self):
         self._nodes = {}
         self._roles = {}
+        self._views = {}
         self._common = None
 
     @property
@@ -54,20 +56,28 @@ class Directory:
         return self.common.get('hierarchy', [])
 
     def roles(self, name: str) -> RoleStorage:
+        fresh = name not in self._roles
+        role = self._role(name)
+
+        if fresh:
+            # a node loaded before its role has resolved against nothing
+            for node in self._nodes.values():
+                if node.role == name:
+                    self.resolve(node)
+
+        return role
+
+    def _role(self, name: str) -> RoleStorage:
+        """Read the role file and nothing else. Re-resolving is roles()' job,
+        and a lookup must be able to reach a role without triggering it."""
         if name not in self._roles:
-            file = cfg.roles_dir / (name + '.yaml')
-            data = yaml_load(file) or {}
+            data = yaml_load(cfg.roles_dir / (name + '.yaml')) or {}
 
             self._roles[name] = RoleStorage(
                 name=name,
                 nodes=role_get_nodes(name, cfg.nodes_dir),
                 **data,
             )
-
-            # a node loaded before its role has resolved against nothing
-            for node in self._nodes.values():
-                if node.role == name:
-                    self.resolve(node)
 
         return self._roles[name]
 
@@ -89,11 +99,40 @@ class Directory:
     def probe(self, node: NodeStorage, family: str, release: int) -> NodeStorage:
         """Fold in what only the target could tell us, then resolve for real."""
         node.update(family=family, release=release)
+        self._views.pop(node.name, None)
 
         return self.resolve(node)
 
     def resolve(self, node: NodeStorage) -> NodeStorage:
-        role = self._roles.get(node.role)
+        data = config_expand_lookups(self._merge(node), self._expander(node.name))
+        node.update(**data)
+
+        return node
+
+    @property
+    def views(self) -> dict:
+        """Every node as the merge left it, lookups NOT expanded. That is what
+        keeps a lookup reading another node from recursing into itself."""
+        for name in nodes_collect(cfg.nodes_dir):
+            self._view(name)
+
+        return self._views
+
+    def _expander(self, name: str):
+        def expand(lookup):
+            return inventory_lookup(lookup, self.views, name)
+
+        return expand
+
+    def _view(self, name: str) -> dict:
+        if name not in self._views:
+            data = yaml_load(cfg.nodes_dir / (name + '.yaml')) or {}
+            self._views[name] = self._merge(NodeStorage(name=name, **data))
+
+        return self._views[name]
+
+    def _merge(self, node: NodeStorage) -> dict:
+        role = self._role(node.role) if node.role else None
 
         declared = (role.modules if role else []) + node.modules
         modules = (module_get_order(declared, cfg.modules_dir)
@@ -118,9 +157,8 @@ class Directory:
 
         data = deep_merge_unwrap(data)
         data['modules'] = modules
-        node.update(**data)
 
-        return node
+        return data
 
     def layer(self, layer: str, **layer_vars) -> dict:
         # An unprobed node has no family yet, so the os layer is simply not read.
