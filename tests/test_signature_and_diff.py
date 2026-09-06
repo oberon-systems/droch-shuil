@@ -27,7 +27,7 @@ def test_an_equal_config_diffs_to_nothing():
 def test_the_diff_names_the_path_that_differs():
     diff = module_diff_configs({'a': {'b': 1}}, {'a': {'b': 2}})
 
-    assert diff == {'a.b': {'expected': 1, 'actual': 2}}
+    assert diff == {('a', 'b'): {'expected': 1, 'actual': 2}}
 
 
 def test_a_fact_beyond_the_expected_keys_is_not_drift():
@@ -35,4 +35,4 @@ def test_a_fact_beyond_the_expected_keys_is_not_drift():
 
 
 def test_a_missing_fact_is_drift():
-    assert module_diff_configs({'a': 1}, {}) == {'a': {'expected': 1, 'actual': None}}
+    assert module_diff_configs({'a': 1}, {}) == {('a',): {'expected': 1, 'actual': None}}

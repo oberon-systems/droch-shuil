@@ -3,8 +3,6 @@ from pathlib import Path
 
 import yaml
 
-from .config_strip_secrets import config_strip_secrets
-
 STAMP = '%Y-%m-%dT%H-%M-%SZ'
 
 
@@ -26,9 +24,9 @@ def run_build_directory(catalogue: dict, runs_dir: Path) -> Path:
             {key: entry[key] for key in ('role', 'family', 'release', 'deployment', 'modules')},
             default_flow_style=False, sort_keys=False))
 
-        for module, config in entry.get('configs', {}).items():
+        for module, config in entry.get('public', {}).items():
             (node_dir / f'{module}.yaml').write_text(yaml.safe_dump(
-                config_strip_secrets(config), default_flow_style=False, sort_keys=False))
+                config, default_flow_style=False, sort_keys=False))
 
     latest = runs_dir / 'latest'
     latest.unlink(missing_ok=True)

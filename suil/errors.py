@@ -33,3 +33,7 @@ class SecretError(SuilError):
 
 class NodeProbeError(SuilError):
     """ The OS of a node could not be determined """
+
+
+class DeploymentError(SuilError):
+    """ An operation failed on a target and the run cannot go on """

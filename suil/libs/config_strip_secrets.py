@@ -1,3 +1,5 @@
+from pydantic import BaseModel
+
 from suil.models import Secret
 
 
@@ -9,6 +11,10 @@ def config_strip_secrets(data):
     """
     if isinstance(data, Secret):
         return data.digest()
+
+    # A module config arrives as its pydantic model, which yaml cannot represent.
+    if isinstance(data, BaseModel):
+        return config_strip_secrets(data.model_dump(mode='json'))
 
     if isinstance(data, dict):
         return {key: config_strip_secrets(value) for key, value in data.items()}

@@ -17,9 +17,11 @@ from .module_get_order import module_get_order
 from .module_get_signature import module_get_signature
 from .module_get_config import module_get_config
 from .module_get_expected import module_get_expected
+from .module_get_public import module_get_public
 from .module_get_facts import module_get_facts
 from .module_collect_facts import module_collect_facts
 from .module_diff_configs import module_diff_configs
+from .module_diff_names import module_diff_names
 from .module_load_code import module_load_code
 from .module_run_code import module_run_code
 from .module_validate_file import module_validate_file
@@ -29,7 +31,8 @@ from .run_build_directory import run_build_directory, run_read_directory
 
 # pyinfra bridge
 from .pyinfra_make_inventory import pyinfra_make_inventory
-from .pyinfra_run_state import pyinfra_connect, pyinfra_make_state, pyinfra_run_state
+from .pyinfra_run_state import (pyinfra_connect, pyinfra_make_state,
+                                pyinfra_read_failures, pyinfra_run_state)
 from .host_put_content import host_put_content
 from .host_run_command import host_run_command
 
@@ -55,9 +58,11 @@ __all__ = [
     'module_get_signature',
     'module_get_config',
     'module_get_expected',
+    'module_get_public',
     'module_get_facts',
     'module_collect_facts',
     'module_diff_configs',
+    'module_diff_names',
     'module_load_code',
     'module_run_code',
     'module_validate_file',
@@ -66,6 +71,7 @@ __all__ = [
     'pyinfra_make_inventory',
     'pyinfra_connect',
     'pyinfra_make_state',
+    'pyinfra_read_failures',
     'pyinfra_run_state',
     'host_put_content',
     'host_run_command',

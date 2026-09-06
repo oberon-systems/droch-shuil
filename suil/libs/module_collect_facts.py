@@ -8,7 +8,6 @@ import yaml
 
 from suil.errors import ModuleError
 
-from .config_strip_secrets import config_strip_secrets
 from .host_put_content import host_put_content
 from .host_run_command import host_run_command
 from .module_get_signature import module_get_signature
@@ -17,17 +16,15 @@ from .module_get_signature import module_get_signature
 def module_collect_facts(host, module: str, config, modules_dir: Path, facts_dir: Path) -> dict:
     """Run the module's collector on the target and record what it reports.
 
-    The collector is handed the config with the secrets already replaced by
-    their digests: it needs to know which resources to describe, not their
-    values.
+    `config` is the public view built by module_get_public - secrets are
+    already digests. Never hand this the model: it holds the plaintext.
     """
     collector = Path(modules_dir) / module / 'facts' / 'collector.py'
 
     if not collector.is_file():
         return {}
 
-    payload = config if isinstance(config, dict) else config.model_dump(mode='json', exclude={'suil'})
-    payload = config_strip_secrets(payload)
+    payload = {key: value for key, value in config.items() if key != 'suil'}
 
     remote_code = host.get_temp_filename(f'{module}-collector')
     remote_conf = host.get_temp_filename(f'{module}-config')

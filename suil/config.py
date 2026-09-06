@@ -21,6 +21,9 @@ class Config(BaseSettings):
     age_key:       str | None = None
     age_recipient: str | None = None
 
+    # Sudo on the targets. Set it and pyinfra never prompts, mid-run or at all.
+    sudo_password: str | None = None
+
     # Terminal output
     log_color: bool = True
 
