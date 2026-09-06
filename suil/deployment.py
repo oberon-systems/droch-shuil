@@ -1,14 +1,17 @@
 import click
 import yaml
 
+from pyinfra.api.exceptions import PyinfraError
+
 from suil.config import cfg
 from suil.directory import directory
-from suil.errors import SuilError
-from suil.libs import (config_strip_secrets, module_collect_facts, module_diff_configs,
+from suil.errors import DeploymentError, SuilError
+from suil.libs import (module_collect_facts, module_diff_configs,
                        module_get_config, module_get_expected, module_get_facts,
-                       module_get_signature, module_run_code, node_probe_os,
+                       module_get_public, module_get_signature, module_run_code, node_probe_os,
                        pyinfra_connect, pyinfra_make_inventory, pyinfra_make_state,
-                       pyinfra_run_state, role_get_nodes, run_build_directory)
+                       pyinfra_read_failures, pyinfra_run_state, role_get_nodes,
+                       run_build_directory)
 from suil.tui import bad, info, ok, warn
 
 
@@ -34,7 +37,11 @@ def deployment_connect(targets: list[str]):
     state = pyinfra_connect(pyinfra_make_state(pyinfra_make_inventory(bootstrap)))
 
     for host in state.inventory.get_active_hosts():
-        probe = node_probe_os(host, cfg.facts_dir)
+        try:
+            probe = node_probe_os(host, cfg.facts_dir)
+        except PyinfraError as error:
+            raise DeploymentError(pyinfra_read_failures(state) or str(error)) from error
+
         directory.probe(directory.node(host.name), probe['family'], probe['release'])
 
     return state
@@ -53,6 +60,7 @@ def deployment_build(targets, modules=()) -> dict:
             directory.probe(node, probe['family'], probe['release'])
 
         selected = [item for item in node.modules if not modules or item in modules]
+        configs = {item: module_get_config(item, node, cfg.modules_dir) for item in selected}
 
         catalogue[name] = {
             'role':       node.role,
@@ -61,7 +69,8 @@ def deployment_build(targets, modules=()) -> dict:
             'facts':      bool(probe),
             'deployment': node.deployment,
             'modules':    selected,
-            'configs':    {item: module_get_config(item, node, cfg.modules_dir)
+            'configs':    configs,
+            'public':     {item: module_get_public(item, node, configs[item])
                            for item in selected},
         }
 
@@ -104,15 +113,15 @@ def deployment_show(catalogue: dict) -> None:
     info('')
 
 
-def deployment_gate(node: str, module: str, config, force: bool) -> tuple[bool, dict]:
-    """pyinfra is idempotent, so this is a speed gate and not a decision about
-    what is true: anything unclear runs the module."""
+def deployment_gate(node: str, module: str, config, force: bool) -> tuple[bool, dict | None]:
+    """What the module has to assert. None is the whole config, and only --force
+    asks for that: a resource the facts already agree with stays out of the run."""
+    if force:
+        return True, None
+
     record = module_get_facts(node, module, cfg.facts_dir)
     diff = module_diff_configs(
         module_get_expected(module, config, cfg.modules_dir), record.get('facts') or {})
-
-    if force or not record:
-        return True, diff
 
     if record.get('signature') != module_get_signature(module, cfg.modules_dir):
         return True, diff
@@ -141,6 +150,11 @@ def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_r
     state = deployment_connect(targets)
     catalogue = deployment_build(targets, modules)
 
+    # Every run, not only the first: a record from last time describes the host
+    # as it was, and the gate would call a machine converged that somebody has
+    # since taken the accounts off.
+    deployment_facts(state, catalogue)
+
     directory_path = run_build_directory(catalogue, cfg.runs_dir)
     info(f'run catalogue: {directory_path}\n')
     applied = []
@@ -157,30 +171,37 @@ def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_r
                 continue
 
             if diff:
-                warn(f'{host.name}: {module} differs at ' + ', '.join(sorted(diff)))
+                warn(f'{host.name}: {module} differs at '
+                     + ', '.join(sorted('.'.join(path) for path in diff)))
 
-            module_run_code(state, host, module, config, cfg.modules_dir)
-            applied.append((host.name, module))
+            if module_run_code(state, host, module, config, diff, cfg.modules_dir):
+                applied.append((host.name, module))
 
     pyinfra_run_state(state, dry_run=dry_run)
 
     if dry_run:
         warn('\ndry run: nothing applied\n')
+    elif not applied:
+        ok('\nnothing to apply, every module is converged\n')
     else:
-        deployment_facts(state, catalogue)
-        ok(f"\napplied: {counted(len(catalogue), 'node')}, "
+        deployment_facts(state, catalogue, only=applied)
+        ok(f"\napplied: {counted(len({node for node, _ in applied}), 'node')}, "
            f"{counted(len(applied), 'module')}\n")
 
     return catalogue
 
 
-def deployment_facts(state, catalogue: dict) -> None:
+def deployment_facts(state, catalogue: dict, only=None) -> None:
+    """Read the target. `only` narrows to the (node, module) pairs given."""
     info('\n--> Collecting facts...')
 
     for host in state.inventory.get_active_hosts():
         for module in catalogue[host.name]['modules']:
+            if only is not None and (host.name, module) not in only:
+                continue
+
             try:
-                module_collect_facts(host, module, catalogue[host.name]['configs'][module],
+                module_collect_facts(host, module, catalogue[host.name]['public'][module],
                                      cfg.modules_dir, cfg.facts_dir)
             except SuilError as error:
                 bad(f'{host.name}: {module} facts not collected: {error}')
@@ -198,10 +219,6 @@ def deployment_config(roles=(), nodes=(), modules=()) -> dict:
 
     for name, entry in catalogue.items():
         info(f'--- {name}')
-        print(yaml.safe_dump(
-            {module: config_strip_secrets(
-                config if isinstance(config, dict) else config.model_dump(mode='json'))
-             for module, config in entry['configs'].items()},
-            default_flow_style=False, sort_keys=False))
+        print(yaml.safe_dump(entry['public'], default_flow_style=False, sort_keys=False))
 
     return catalogue
