@@ -1,5 +1,5 @@
-from suil.libs import deep_merge, module_get_defaults, role_get_nodes, yaml_load
 from suil.config import cfg
+from suil.libs import deep_merge, deep_merge_unwrap, module_get_defaults, module_get_order, role_get_nodes, yaml_load
 
 
 class NodeStorage:
@@ -8,8 +8,8 @@ class NodeStorage:
         data = {
             'role': None,
             'modules': [],
-            'family': 'redhat',
-            'release': 10,
+            'family': None,
+            'release': None,
             'deployment': {},
         }
 
@@ -86,13 +86,18 @@ class Directory:
 
         return self._nodes[name]
 
+    def probe(self, node: NodeStorage, family: str, release: int) -> NodeStorage:
+        """Fold in what only the target could tell us, then resolve for real."""
+        node.update(family=family, release=release)
+
+        return self.resolve(node)
+
     def resolve(self, node: NodeStorage) -> NodeStorage:
         role = self._roles.get(node.role)
 
-        modules = []
-        for module in (role.modules if role else []) + node.modules:
-            if module not in modules:
-                modules.append(module)
+        declared = (role.modules if role else []) + node.modules
+        modules = (module_get_order(declared, cfg.modules_dir)
+                   if node.family else self._dedupe(declared))
 
         layer_vars = {
             'family': node.family,
@@ -111,13 +116,28 @@ class Directory:
             for module in (modules if '{module}' in layer else ['']):
                 data = deep_merge(data, self.layer(layer, module=module, **layer_vars))
 
+        data = deep_merge_unwrap(data)
         data['modules'] = modules
         node.update(**data)
 
         return node
 
     def layer(self, layer: str, **layer_vars) -> dict:
+        # An unprobed node has no family yet, so the os layer is simply not read.
+        if any(value is None for key, value in layer_vars.items() if '{' + key + '}' in layer):
+            return {}
+
         return yaml_load(cfg.data_dir / layer.format(**layer_vars)) or {}
+
+    @staticmethod
+    def _dedupe(modules: list[str]) -> list[str]:
+        seen = []
+
+        for module in modules:
+            if module not in seen:
+                seen.append(module)
+
+        return seen
 
 
 # init directory

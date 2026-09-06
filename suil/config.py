@@ -17,6 +17,13 @@ class Config(BaseSettings):
     # Directories
     base_dir: DirectoryPath = os.path.dirname(os.path.realpath(__file__))
 
+    # age keys, X25519. The private half decrypts, the public half encrypts.
+    age_key:       str | None = None
+    age_recipient: str | None = None
+
+    # Terminal output
+    log_color: bool = True
+
     @property
     def data_dir(self):
         return Path(self.base_dir) / 'data'
@@ -40,6 +47,18 @@ class Config(BaseSettings):
     @property
     def nodes_dir(self):
         return self.data_dir / 'nodes'
+
+    @property
+    def os_dir(self):
+        return self.data_dir / 'os'
+
+    @property
+    def module_data_dir(self):
+        return self.data_dir / 'modules'
+
+    @property
+    def runs_dir(self):
+        return Path(self.base_dir) / '.runs'
 
 
 cfg = Config()
