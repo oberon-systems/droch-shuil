@@ -3,12 +3,14 @@ from suil.models import Secret
 
 
 def catalogue():
+    # `public` is what reaches the disk: `configs` in a live catalogue holds the
+    # validated models, plaintext secrets and all, and never leaves memory.
     return {
         'node-01.example.com': {
             'role': 'test', 'family': 'redhat', 'release': 10,
             'deployment': {'ssh_user': 'deploy'},
             'modules': ['hostname'],
-            'configs': {'hostname': {'fqdn': 'node-01.example.com'}},
+            'public': {'hostname': {'fqdn': 'node-01.example.com'}},
         },
     }
 
@@ -18,7 +20,8 @@ def test_a_run_is_written_and_read_back(tmp_path):
     read = run_read_directory(tmp_path)
 
     assert list(read) == ['node-01.example.com']
-    assert read['node-01.example.com']['configs']['hostname']['fqdn'] == 'node-01.example.com'
+    assert read['node-01.example.com']['public']['hostname']['fqdn'] == 'node-01.example.com'
+    assert read['node-01.example.com']['modules'] == ['hostname']
 
 
 def test_latest_points_at_the_newest_run(tmp_path):
@@ -30,7 +33,7 @@ def test_latest_points_at_the_newest_run(tmp_path):
 def test_a_secret_reaches_the_catalogue_as_a_digest_only(tmp_path, monkeypatch):
     monkeypatch.setattr(Secret, 'reveal', lambda self: 'hunter2')
     entry = catalogue()
-    entry['node-01.example.com']['configs']['hostname']['token'] = Secret('Y2lwaGVy')
+    entry['node-01.example.com']['public']['hostname']['token'] = Secret('Y2lwaGVy')
 
     run_build_directory(entry, tmp_path)
     written = (tmp_path / 'latest' / 'node-01.example.com' / 'hostname.yaml').read_text()
