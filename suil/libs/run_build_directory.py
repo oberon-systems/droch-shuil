@@ -3,6 +3,8 @@ from pathlib import Path
 
 import yaml
 
+from .config_strip_secrets import config_strip_secrets
+
 STAMP = '%Y-%m-%dT%H-%M-%SZ'
 
 
@@ -25,8 +27,11 @@ def run_build_directory(catalogue: dict, runs_dir: Path) -> Path:
             default_flow_style=False, sort_keys=False))
 
         for module, config in entry.get('public', {}).items():
+            # The caller hands over the public view already, but a Secret that
+            # slipped through would be written out here - and safe_dump would
+            # refuse a str subclass rather than say why.
             (node_dir / f'{module}.yaml').write_text(yaml.safe_dump(
-                config, default_flow_style=False, sort_keys=False))
+                config_strip_secrets(config), default_flow_style=False, sort_keys=False))
 
     latest = runs_dir / 'latest'
     latest.unlink(missing_ok=True)
@@ -47,7 +52,9 @@ def run_read_directory(runs_dir: Path, name: str = 'latest') -> dict:
             continue
 
         entry = yaml.safe_load((node_dir / 'node.yaml').read_text()) or {}
-        entry['configs'] = {
+        # `public`, not `configs`: what is on disk is the digested view, and
+        # `configs` in a live catalogue means the models, secrets and all.
+        entry['public'] = {
             item.stem: yaml.safe_load(item.read_text()) or {}
             for item in sorted(node_dir.glob('*.yaml')) if item.name != 'node.yaml'
         }
