@@ -35,6 +35,7 @@ from .pyinfra_run_state import (pyinfra_connect, pyinfra_make_state,
                                 pyinfra_read_failures, pyinfra_run_state)
 from .host_put_content import host_put_content
 from .host_run_command import host_run_command
+from .host_sudo_password import host_sudo_password
 
 # secrets
 from .string_encrypt import string_encrypt
@@ -79,6 +80,7 @@ __all__ = [
     'pyinfra_run_state',
     'host_put_content',
     'host_run_command',
+    'host_sudo_password',
     'string_encrypt',
     'string_decrypt',
     'config_reveal_secrets',
