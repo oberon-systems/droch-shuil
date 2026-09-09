@@ -4,16 +4,22 @@ from suil.errors import ModuleError, ModuleOrderError
 from suil.libs import module_get_order, module_get_requires
 
 
-def test_base_expands_into_the_five_in_list_order(modules_dir):
+def test_base_expands_in_list_order(modules_dir):
     assert module_get_order(['base'], modules_dir) == [
-        'hostname', 'accounts', 'ssh', 'packages', 'nftables', 'base']
+        'hostname', 'repos', 'packages', 'accounts', 'ssh', 'nftables', 'base']
 
 
-def test_nftables_is_last_of_the_five(modules_dir):
+def test_nftables_is_last_and_repos_precedes_packages(modules_dir):
     order = module_get_order(['base'], modules_dir)
 
     assert order.index('nftables') > order.index('packages')
     assert order.index('accounts') < order.index('ssh')
+    assert order.index('repos') < order.index('packages')
+
+
+def test_packages_declares_repos_rather_than_relying_on_position(modules_dir):
+    assert module_get_requires('packages', modules_dir) == ['repos']
+    assert module_get_order(['packages'], modules_dir) == ['repos', 'packages']
 
 
 def test_ssh_declares_accounts_rather_than_relying_on_position(modules_dir):
