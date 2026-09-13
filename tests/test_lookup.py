@@ -7,15 +7,15 @@ from suil.libs.yaml_load import SuilLoader
 from suil.models import Lookup
 
 VIEWS = {
-    'b-01.example.com': {'role': 'gateway', 'unbound': {'host_address': '10.0.0.2'}},
-    'a-01.example.com': {'role': 'gateway', 'unbound': {'host_address': '10.0.0.1'}},
-    'c-01.other.net':   {'role': 'edge', 'unbound': {'host_address': ['10.0.0.3', 'fd00::3']}},
-    'd-01.example.com': {'role': 'edge', 'unbound': {'host_address': ''}},
+    'b-01.example.com': {'role': 'gateway', 'resolver': {'host_address': '10.0.0.2'}},
+    'a-01.example.com': {'role': 'gateway', 'resolver': {'host_address': '10.0.0.1'}},
+    'c-01.other.net':   {'role': 'edge', 'resolver': {'host_address': ['10.0.0.3', 'fd00::3']}},
+    'd-01.example.com': {'role': 'edge', 'resolver': {'host_address': ''}},
 }
 
 
 def lookup(**spec):
-    spec.setdefault('field', 'unbound.host_address')
+    spec.setdefault('field', 'resolver.host_address')
 
     return Lookup(spec)
 
@@ -79,7 +79,7 @@ def test_a_marker_outside_a_list_becomes_the_list_of_values():
 
 
 def test_the_tag_parses_out_of_yaml():
-    data = yaml.load('records:\n  - !LOOKUP\n    field: unbound.host_address\n',
+    data = yaml.load('records:\n  - !LOOKUP\n    field: resolver.host_address\n',
                      Loader=SuilLoader)
 
     assert data['records'][0] == lookup()

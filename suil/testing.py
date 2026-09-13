@@ -1,3 +1,10 @@
+"""Fixtures a module's own tests run on, published as a pytest plugin.
+
+The runner knows nothing about any module: it hands out the modules directory,
+a node context and a loader, and what is tested with them is the module
+author's business.
+"""
+
 import pytest
 
 from suil.config import cfg

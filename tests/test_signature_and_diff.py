@@ -1,21 +1,32 @@
 from suil.libs import module_diff_configs, module_get_signature
 
 
-def test_a_signature_is_stable_across_calls(modules_dir):
-    assert module_get_signature('ssh', modules_dir) == module_get_signature('ssh', modules_dir)
+def module(root, name, content):
+    data = root / name / 'data'
+    data.mkdir(parents=True)
+    (data / 'defaults.yaml').write_text(content)
+
+    return root
 
 
-def test_two_modules_do_not_share_a_signature(modules_dir):
-    assert module_get_signature('ssh', modules_dir) != module_get_signature('packages', modules_dir)
+def test_a_signature_is_stable_across_calls(tmp_path):
+    module(tmp_path, 'demo', 'demo: {}\n')
+
+    assert module_get_signature('demo', tmp_path) == module_get_signature('demo', tmp_path)
+
+
+def test_two_modules_do_not_share_a_signature(tmp_path):
+    module(tmp_path, 'one', 'one: {}\n')
+    module(tmp_path, 'two', 'two: {}\n')
+
+    assert module_get_signature('one', tmp_path) != module_get_signature('two', tmp_path)
 
 
 def test_a_changed_file_changes_the_signature(tmp_path):
-    root = tmp_path / 'demo' / 'data'
-    root.mkdir(parents=True)
-    (root / 'defaults.yaml').write_text('demo: {}\n')
+    module(tmp_path, 'demo', 'demo: {}\n')
     before = module_get_signature('demo', tmp_path)
 
-    (root / 'defaults.yaml').write_text('demo: {a: 1}\n')
+    (tmp_path / 'demo' / 'data' / 'defaults.yaml').write_text('demo: {a: 1}\n')
 
     assert module_get_signature('demo', tmp_path) != before
 

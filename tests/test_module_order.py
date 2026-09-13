@@ -1,41 +1,48 @@
 import pytest
 
 from suil.errors import ModuleError, ModuleOrderError
-from suil.libs import module_get_order, module_get_requires
+from suil.libs import module_get_order
 
 
-def test_base_expands_in_list_order(modules_dir):
-    assert module_get_order(['base'], modules_dir) == [
-        'hostname', 'repos', 'packages', 'accounts', 'ssh', 'nftables', 'base']
+def tree(root, modules):
+    """A modules directory of empty modules, each with its own requires."""
+    for name, requires in modules.items():
+        (root / name).mkdir()
+
+        if requires is not None:
+            (root / name / 'requires.yaml').write_text('requires: [{}]\n'.format(', '.join(requires)))
+
+    return root
 
 
-def test_nftables_is_last_and_repos_precedes_packages(modules_dir):
-    order = module_get_order(['base'], modules_dir)
+def test_a_requirement_lands_before_what_needs_it(tmp_path):
+    tree(tmp_path, {'one': ['two'], 'two': None})
 
-    assert order.index('nftables') > order.index('packages')
-    assert order.index('accounts') < order.index('ssh')
-    assert order.index('repos') < order.index('packages')
+    assert module_get_order(['one'], tmp_path) == ['two', 'one']
 
 
-def test_packages_declares_repos_rather_than_relying_on_position(modules_dir):
-    assert module_get_requires('packages', modules_dir) == ['repos']
-    assert module_get_order(['packages'], modules_dir) == ['repos', 'packages']
+def test_the_order_of_a_requires_list_is_the_order_of_the_run(tmp_path):
+    tree(tmp_path, {'meta': ['first', 'second', 'third'],
+                    'first': None, 'second': None, 'third': None})
+
+    assert module_get_order(['meta'], tmp_path) == ['first', 'second', 'third', 'meta']
 
 
-def test_ssh_declares_accounts_rather_than_relying_on_position(modules_dir):
-    assert module_get_requires('ssh', modules_dir) == ['accounts']
-    assert module_get_order(['ssh'], modules_dir) == ['accounts', 'ssh']
+def test_a_module_is_ordered_once_however_often_it_is_required(tmp_path):
+    tree(tmp_path, {'one': ['shared'], 'two': ['shared'], 'shared': None})
+
+    assert module_get_order(['one', 'two'], tmp_path) == ['shared', 'one', 'two']
 
 
-def test_a_module_that_is_not_there_is_named(modules_dir):
+def test_a_module_that_is_not_there_is_named(tmp_path):
+    tree(tmp_path, {'one': ['nosuchmodule']})
+
     with pytest.raises(ModuleError, match='nosuchmodule'):
-        module_get_order(['nosuchmodule'], modules_dir)
+        module_get_order(['one'], tmp_path)
 
 
 def test_a_cycle_is_reported_as_one(tmp_path):
-    for name, requires in (('a', 'b'), ('b', 'a')):
-        (tmp_path / name).mkdir()
-        (tmp_path / name / 'requires.yaml').write_text(f'requires: [{requires}]\n')
+    tree(tmp_path, {'a': ['b'], 'b': ['a']})
 
     with pytest.raises(ModuleOrderError, match='cycle'):
         module_get_order(['a'], tmp_path)

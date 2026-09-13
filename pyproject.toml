@@ -12,6 +12,11 @@ dependencies = []
 [project.scripts]
 suil = "suil.cli:cli"
 
+# A module's tests get the fixtures without a conftest of their own, wherever
+# they live. Registered at install time, so `pip install -e ./suil` again.
+[project.entry-points.pytest11]
+suil = "suil.testing"
+
 # The package dir is the project dir: DESIGN.md names suil/libs/, not suil/suil/libs/.
 [tool.setuptools]
 packages = ["suil", "suil.libs"]
