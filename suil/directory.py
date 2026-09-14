@@ -1,6 +1,6 @@
 from suil.config import cfg
 from suil.libs import (config_expand_lookups, deep_merge, deep_merge_unwrap, inventory_lookup,
-                       module_get_defaults, module_get_order, nodes_collect, role_get_nodes, yaml_load)
+                       module_get_defaults, module_get_order, nodes_collect, role_get_nodes, yaml_load_data)
 
 
 class NodeStorage:
@@ -48,7 +48,7 @@ class Directory:
     @property
     def common(self) -> dict:
         if self._common is None:
-            self._common = yaml_load(cfg.hierarchy_file) or {}
+            self._common = yaml_load_data(cfg.hierarchy_file) or {}
         return self._common
 
     @property
@@ -71,7 +71,7 @@ class Directory:
         """Read the role file and nothing else. Re-resolving is roles()' job,
         and a lookup must be able to reach a role without triggering it."""
         if name not in self._roles:
-            data = yaml_load(cfg.roles_dir / (name + '.yaml')) or {}
+            data = yaml_load_data(cfg.roles_dir / (name + '.yaml')) or {}
 
             self._roles[name] = RoleStorage(
                 name=name,
@@ -84,7 +84,7 @@ class Directory:
     def node(self, name: str) -> NodeStorage:
         if name not in self._nodes:
             file = cfg.nodes_dir / (name + '.yaml')
-            data = yaml_load(file) or {}
+            data = yaml_load_data(file) or {}
 
             node = NodeStorage(name=name, **data)
 
@@ -126,7 +126,7 @@ class Directory:
 
     def _view(self, name: str) -> dict:
         if name not in self._views:
-            data = yaml_load(cfg.nodes_dir / (name + '.yaml')) or {}
+            data = yaml_load_data(cfg.nodes_dir / (name + '.yaml')) or {}
             self._views[name] = self._merge(NodeStorage(name=name, **data))
 
         return self._views[name]
@@ -165,7 +165,7 @@ class Directory:
         if any(value is None for key, value in layer_vars.items() if '{' + key + '}' in layer):
             return {}
 
-        return yaml_load(cfg.data_dir / layer.format(**layer_vars)) or {}
+        return yaml_load_data(cfg.data_dir / layer.format(**layer_vars)) or {}
 
     @staticmethod
     def _dedupe(modules: list[str]) -> list[str]:

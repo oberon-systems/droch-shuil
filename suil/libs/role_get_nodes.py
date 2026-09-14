@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from .yaml_load import yaml_load
+from .yaml_load_data import yaml_load_data
 
 
 def role_get_nodes(role: str, nodes_dir: Path) -> set[str]:
@@ -8,7 +8,7 @@ def role_get_nodes(role: str, nodes_dir: Path) -> set[str]:
 
     for file in nodes_dir.glob('*.yaml'):
 
-        if data := yaml_load(file):
+        if data := yaml_load_data(file):
             if data.get('role') == role:
                 nodes.add(file.with_suffix('').name)
 

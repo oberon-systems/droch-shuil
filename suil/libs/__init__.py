@@ -49,6 +49,7 @@ from .config_expand_lookups import config_expand_lookups
 # misc and utils
 from .deep_merge import deep_merge, deep_merge_unwrap
 from .yaml_load import yaml_load
+from .yaml_load_data import yaml_load_data
 
 __all__ = [
     'roles_collect',
@@ -90,4 +91,5 @@ __all__ = [
     'deep_merge',
     'deep_merge_unwrap',
     'yaml_load',
+    'yaml_load_data',
 ]
