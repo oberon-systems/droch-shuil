@@ -23,6 +23,8 @@ from .module_diff_configs import module_diff_configs
 from .module_diff_names import module_diff_names
 from .module_load_code import module_load_code
 from .module_run_code import module_run_code
+from .module_run_check import module_run_check
+from .module_diff_touches import module_diff_touches
 from .module_validate_file import module_validate_file
 
 # run catalogue
@@ -69,6 +71,8 @@ __all__ = [
     'module_diff_names',
     'module_load_code',
     'module_run_code',
+    'module_run_check',
+    'module_diff_touches',
     'module_validate_file',
     'run_build_directory',
     'run_read_directory',

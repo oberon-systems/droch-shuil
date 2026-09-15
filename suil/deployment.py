@@ -7,7 +7,8 @@ from suil.config import cfg
 from suil.directory import directory
 from suil.errors import DeploymentError, SuilError
 from suil.libs import (module_collect_facts, module_get_config, module_get_facts,
-                       module_get_public, module_run_code, node_probe_os,
+                       module_get_public, module_get_signature, module_run_check,
+                       module_run_code, node_probe_os,
                        pyinfra_connect, pyinfra_make_inventory, pyinfra_make_state,
                        pyinfra_read_failures, pyinfra_run_state, role_get_nodes,
                        run_build_directory)
@@ -133,9 +134,11 @@ def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_r
     state = deployment_connect(targets)
     catalogue = deployment_build(targets, modules)
 
-    # Every run, not only the first: a record from last time describes the host
-    # as it was, and the gate would call a machine converged that somebody has
-    # since taken the accounts off.
+    # Read before the collection below, which records the current signature.
+    signatures = {(name, module): module_get_facts(name, module, cfg.facts_dir).get('signature')
+                  for name, entry in catalogue.items() for module in entry['modules']}
+
+    # Every run, not only the first: a record from last time describes the host as it was.
     deployment_facts(state, catalogue)
 
     directory_path = run_build_directory(catalogue, cfg.runs_dir)
@@ -146,24 +149,47 @@ def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_r
         entry = catalogue[host.name]
 
         for module in entry['modules']:
-            # --force is a clean host: the module decides from no facts at all.
-            facts = {} if force else module_get_facts(host.name, module, cfg.facts_dir).get('facts') or {}
+            changed = force or signatures[(host.name, module)] != module_get_signature(module, cfg.modules_dir)
+            facts = module_get_facts(host.name, module, cfg.facts_dir).get('facts') or {}
+            queued = len(state.ops[host])
 
-            if module_run_code(state, host, module, entry['configs'][module], facts, cfg.modules_dir):
+            module_run_code(state, host, module, entry['configs'][module], facts, changed, cfg.modules_dir)
+
+            if len(state.ops[host]) > queued:
                 applied.append((host.name, module))
 
-    pyinfra_run_state(state, dry_run=dry_run)
-
-    if dry_run:
-        warn('\ndry run: nothing applied\n')
-    elif not applied:
-        ok('\nnothing to apply, no module carries code\n')
+    if not applied:
+        ok('\nnothing to apply\n')
     else:
+        pyinfra_run_state(state, dry_run=dry_run)
+
+        if dry_run:
+            warn('\ndry run: nothing applied\n')
+            return catalogue
+
         deployment_facts(state, catalogue, only=applied)
         ok(f"\napplied: {counted(len({node for node, _ in applied}), 'node')}, "
            f"{counted(len(applied), 'module')}\n")
 
+    deployment_check(state, catalogue)
+
     return catalogue
+
+
+def deployment_check(state, catalogue: dict) -> None:
+    """What the modules find broken in the facts as they stand after the run."""
+    problems = []
+
+    for host in state.inventory.get_active_hosts():
+        entry = catalogue[host.name]
+
+        for module in entry['modules']:
+            facts = module_get_facts(host.name, module, cfg.facts_dir).get('facts') or {}
+            problems += [f'{host.name}, module {module}: {problem}'
+                         for problem in module_run_check(module, entry['configs'][module], facts, cfg.modules_dir)]
+
+    if problems:
+        raise DeploymentError('not up after the run\n\n' + '\n'.join(problems))
 
 
 def deployment_facts(state, catalogue: dict, only=None) -> None:
