@@ -16,7 +16,6 @@ from .module_get_requires import module_get_requires
 from .module_get_order import module_get_order
 from .module_get_signature import module_get_signature
 from .module_get_config import module_get_config
-from .module_get_expected import module_get_expected
 from .module_get_public import module_get_public
 from .module_get_facts import module_get_facts
 from .module_collect_facts import module_collect_facts
@@ -63,7 +62,6 @@ __all__ = [
     'module_get_order',
     'module_get_signature',
     'module_get_config',
-    'module_get_expected',
     'module_get_public',
     'module_get_facts',
     'module_collect_facts',

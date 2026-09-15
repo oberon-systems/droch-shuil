@@ -6,9 +6,8 @@ from pyinfra.api.exceptions import PyinfraError
 from suil.config import cfg
 from suil.directory import directory
 from suil.errors import DeploymentError, SuilError
-from suil.libs import (module_collect_facts, module_diff_configs,
-                       module_get_config, module_get_expected, module_get_facts,
-                       module_get_public, module_get_signature, module_run_code, node_probe_os,
+from suil.libs import (module_collect_facts, module_get_config, module_get_facts,
+                       module_get_public, module_run_code, node_probe_os,
                        pyinfra_connect, pyinfra_make_inventory, pyinfra_make_state,
                        pyinfra_read_failures, pyinfra_run_state, role_get_nodes,
                        run_build_directory)
@@ -113,22 +112,6 @@ def deployment_show(catalogue: dict) -> None:
     info('')
 
 
-def deployment_gate(node: str, module: str, config, force: bool) -> tuple[bool, dict | None]:
-    """What the module has to assert. None is the whole config, and only --force
-    asks for that: a resource the facts already agree with stays out of the run."""
-    if force:
-        return True, None
-
-    record = module_get_facts(node, module, cfg.facts_dir)
-    diff = module_diff_configs(
-        module_get_expected(module, config, cfg.modules_dir), record.get('facts') or {})
-
-    if record.get('signature') != module_get_signature(module, cfg.modules_dir):
-        return True, diff
-
-    return bool(diff), diff
-
-
 def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_run=False) -> dict:
     targets = deployment_targets(roles, nodes)
 
@@ -163,18 +146,10 @@ def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_r
         entry = catalogue[host.name]
 
         for module in entry['modules']:
-            config = entry['configs'][module]
-            run, diff = deployment_gate(host.name, module, config, force)
+            # --force is a clean host: the module decides from no facts at all.
+            facts = {} if force else module_get_facts(host.name, module, cfg.facts_dir).get('facts') or {}
 
-            if not run:
-                ok(f'{host.name}: {module} is converged, skipping')
-                continue
-
-            if diff:
-                warn(f'{host.name}: {module} differs at '
-                     + ', '.join(sorted('.'.join(path) for path in diff)))
-
-            if module_run_code(state, host, module, config, diff, cfg.modules_dir):
+            if module_run_code(state, host, module, entry['configs'][module], facts, cfg.modules_dir):
                 applied.append((host.name, module))
 
     pyinfra_run_state(state, dry_run=dry_run)
@@ -182,7 +157,7 @@ def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_r
     if dry_run:
         warn('\ndry run: nothing applied\n')
     elif not applied:
-        ok('\nnothing to apply, every module is converged\n')
+        ok('\nnothing to apply, no module carries code\n')
     else:
         deployment_facts(state, catalogue, only=applied)
         ok(f"\napplied: {counted(len({node for node, _ in applied}), 'node')}, "

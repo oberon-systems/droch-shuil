@@ -7,11 +7,10 @@ from suil.errors import ModuleError
 from .module_load_code import module_load_code
 
 
-def module_run_code(state, host, module: str, config, diff, modules_dir: Path) -> bool:
+def module_run_code(state, host, module: str, config, facts: dict, modules_dir: Path) -> bool:
     """Queue the module's operations for one host. False means a meta module.
 
-    `diff` names what is out of step; None is the whole config, which only
-    --force asks for.
+    `facts` is what the collector reported before the run; empty under --force.
     """
     code = module_load_code(module, modules_dir)
 
@@ -23,6 +22,6 @@ def module_run_code(state, host, module: str, config, diff, modules_dir: Path) -
     if entry is None:
         raise ModuleError(f'modules/{module}/code/main.py declares no deploy()')
 
-    add_deploy(state, entry, config, diff, host=host)
+    add_deploy(state, entry, config, facts, host=host)
 
     return True
