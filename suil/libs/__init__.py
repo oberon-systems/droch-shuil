@@ -25,6 +25,10 @@ from .module_load_code import module_load_code
 from .module_run_code import module_run_code
 from .module_run_check import module_run_check
 from .module_diff_touches import module_diff_touches
+from .module_get_files import module_get_files
+from .module_collect_files import module_collect_files
+from .module_file_digest import module_file_digest
+from .module_file_needs_write import module_file_needs_write
 from .module_validate_file import module_validate_file
 
 # run catalogue
@@ -73,6 +77,10 @@ __all__ = [
     'module_run_code',
     'module_run_check',
     'module_diff_touches',
+    'module_get_files',
+    'module_collect_files',
+    'module_file_digest',
+    'module_file_needs_write',
     'module_validate_file',
     'run_build_directory',
     'run_read_directory',

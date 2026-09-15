@@ -10,20 +10,45 @@ from suil.errors import ModuleError
 
 from .host_put_content import host_put_content
 from .host_run_command import host_run_command
+from .module_collect_files import module_collect_files
+from .module_get_files import module_get_files
 from .module_get_signature import module_get_signature
 
 
-def module_collect_facts(host, module: str, config, modules_dir: Path, facts_dir: Path) -> dict:
-    """Run the module's collector on the target and record what it reports.
+def module_collect_facts(host, module: str, config, model, modules_dir: Path, facts_dir: Path) -> dict:
+    """Run the module's collector on the target and record what it reports,
+    together with the digest of every file the module puts there.
 
     `config` is the public view built by module_get_public - secrets are
-    already digests. Never hand this the model: it holds the plaintext.
+    already digests, and it is all the collector ever sees. `model` renders the
+    files and never leaves the control machine.
     """
     collector = Path(modules_dir) / module / 'facts' / 'collector.py'
+    files = module_get_files(module, model, modules_dir)
 
-    if not collector.is_file():
+    if not collector.is_file() and not files:
         return {}
 
+    facts = _collector(host, module, config, collector) if collector.is_file() else {}
+
+    if files:
+        facts['files'] = module_collect_files(host, files)
+
+    record = {
+        'facts':     facts,
+        'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+        'signature': module_get_signature(module, modules_dir),
+    }
+
+    target = Path(facts_dir) / host.name
+    target.mkdir(parents=True, exist_ok=True)
+    (target / f'{module}.yaml').write_text(
+        yaml.safe_dump(record, default_flow_style=False, sort_keys=False))
+
+    return record
+
+
+def _collector(host, module: str, config, collector: Path) -> dict:
     payload = {key: value for key, value in config.items() if key != 'suil'}
 
     remote_code = host.get_temp_filename(f'{module}-collector')
@@ -43,19 +68,6 @@ def module_collect_facts(host, module: str, config, modules_dir: Path, facts_dir
         raise ModuleError(f'{host.name}: the {module} collector failed\n{(stderr or stdout).strip()}')
 
     try:
-        facts = json.loads(stdout)
+        return json.loads(stdout)
     except json.JSONDecodeError as error:
         raise ModuleError(f'{host.name}: the {module} collector printed no JSON: {error}') from error
-
-    record = {
-        'facts':     facts,
-        'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'signature': module_get_signature(module, modules_dir),
-    }
-
-    target = Path(facts_dir) / host.name
-    target.mkdir(parents=True, exist_ok=True)
-    (target / f'{module}.yaml').write_text(
-        yaml.safe_dump(record, default_flow_style=False, sort_keys=False))
-
-    return record

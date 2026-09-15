@@ -203,7 +203,7 @@ def deployment_facts(state, catalogue: dict, only=None) -> None:
 
             try:
                 module_collect_facts(host, module, catalogue[host.name]['public'][module],
-                                     cfg.modules_dir, cfg.facts_dir)
+                                     catalogue[host.name]['configs'][module], cfg.modules_dir, cfg.facts_dir)
             except SuilError as error:
                 bad(f'{host.name}: {module} facts not collected: {error}')
 
