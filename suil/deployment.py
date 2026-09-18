@@ -7,7 +7,7 @@ from suil.config import cfg
 from suil.directory import directory
 from suil.errors import DeploymentError, SuilError
 from suil.libs import (module_collect_facts, module_get_config, module_get_facts,
-                       module_get_public, module_get_signature, module_run_check,
+                       module_get_public, module_get_signature, module_run_check, module_run_drift,
                        module_run_code, node_probe_os,
                        pyinfra_connect, pyinfra_make_inventory, pyinfra_make_state,
                        pyinfra_read_failures, pyinfra_run_state, role_get_nodes,
@@ -177,7 +177,7 @@ def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_r
 
 
 def deployment_check(state, catalogue: dict) -> None:
-    """What the modules find broken in the facts as they stand after the run."""
+    """What the modules find broken, and what still differs from expected(), in the facts after the run."""
     problems = []
 
     for host in state.inventory.get_active_hosts():
@@ -187,6 +187,11 @@ def deployment_check(state, catalogue: dict) -> None:
             facts = module_get_facts(host.name, module, cfg.facts_dir).get('facts') or {}
             problems += [f'{host.name}, module {module}: {problem}'
                          for problem in module_run_check(module, entry['configs'][module], facts, cfg.modules_dir)]
+
+            drift = module_run_drift(module, entry['configs'][module], facts, cfg.modules_dir)
+
+            if drift:
+                problems.append(f"{host.name}, module {module}: still differs after the run: {', '.join(drift)}")
 
     if problems:
         raise DeploymentError('not up after the run\n\n' + '\n'.join(problems))

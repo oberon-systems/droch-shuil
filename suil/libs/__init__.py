@@ -24,6 +24,7 @@ from .module_diff_names import module_diff_names
 from .module_load_code import module_load_code
 from .module_run_code import module_run_code
 from .module_run_check import module_run_check
+from .module_run_drift import module_run_drift
 from .module_diff_touches import module_diff_touches
 from .module_get_files import module_get_files
 from .module_collect_files import module_collect_files
@@ -76,6 +77,7 @@ __all__ = [
     'module_load_code',
     'module_run_code',
     'module_run_check',
+    'module_run_drift',
     'module_diff_touches',
     'module_get_files',
     'module_collect_files',
