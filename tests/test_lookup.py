@@ -20,10 +20,6 @@ def lookup(**spec):
     return Lookup(spec)
 
 
-def expander(node=None):
-    return lambda item: inventory_lookup(item, VIEWS, node)
-
-
 def test_a_lookup_reads_every_node_sorted_by_key():
     assert inventory_lookup(lookup(format='{node}. A {value}'), VIEWS) == [
         'a-01.example.com. A 10.0.0.1',
@@ -64,7 +60,7 @@ def test_the_ip_filter_splits_the_families():
 def test_a_marker_in_a_list_splices_beside_the_literals():
     data = {'data': ['gw.example.com. A 10.9.9.9', lookup(format='{node}. A {value}')]}
 
-    assert config_expand_lookups(data, expander())['data'] == [
+    assert config_expand_lookups(data, VIEWS, None)['data'] == [
         'gw.example.com. A 10.9.9.9',
         'a-01.example.com. A 10.0.0.1',
         'b-01.example.com. A 10.0.0.2',
@@ -74,8 +70,13 @@ def test_a_marker_in_a_list_splices_beside_the_literals():
 
 
 def test_a_marker_outside_a_list_becomes_the_list_of_values():
-    assert config_expand_lookups({'addresses': lookup(ip='v4')}, expander()) == {
+    assert config_expand_lookups({'addresses': lookup(ip='v4')}, VIEWS, None) == {
         'addresses': ['10.0.0.1', '10.0.0.2', '10.0.0.3']}
+
+
+def test_a_lookup_that_finds_nothing_in_the_run_fails():
+    with pytest.raises(DataError):
+        config_expand_lookups({'addresses': lookup(role='nowhere')}, VIEWS, 'a-01.example.com')
 
 
 def test_the_tag_parses_out_of_yaml():

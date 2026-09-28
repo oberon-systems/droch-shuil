@@ -1,16 +1,13 @@
 import base64
 import re
 
-from suil.config import cfg
 from suil.errors import SecretError
 
 # The marker as it survives both YAML forms: the tag name and the folded string.
 MARKER = re.compile(r'^\s*!ENC\[\s*(?P<payload>[A-Za-z0-9+/=\s]+?)\s*\]\s*$')
 
 
-def string_decrypt(cipher: str, key: str | None = None) -> str:
-    key = key or cfg.age_key
-
+def string_decrypt(cipher: str, key: str | None) -> str:
     if not key:
         raise SecretError('SUIL_AGE_KEY is not set, an encrypted value cannot be read')
 

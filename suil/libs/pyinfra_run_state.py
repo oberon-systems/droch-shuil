@@ -10,7 +10,6 @@ from pyinfra.api.state import BaseStateCallback, StateStage
 from pyinfra_cli.log import setup_logging
 from pyinfra_cli.prints import print_meta, print_results
 
-from suil.config import cfg
 from suil.errors import DeploymentError
 
 
@@ -30,7 +29,7 @@ class Failures(BaseStateCallback):
         self.refused.append((host, error))
 
 
-def pyinfra_make_state(inventory, sudo: bool = True) -> State:
+def pyinfra_make_state(inventory, sudo_password: str | None, sudo: bool = True) -> State:
     # The API leaves its logger at WARNING, which hides the operation names and
     # the output of the command that failed - only "Error" survives.
     if not logger.handlers:
@@ -38,7 +37,7 @@ def pyinfra_make_state(inventory, sudo: bool = True) -> State:
 
     # Empty is not a password: an initial run against a cloud image sudo's with
     # none at all, and `or None` keeps that the same as leaving it unset.
-    state = State(inventory, Config(SUDO=sudo, SUDO_PASSWORD=cfg.sudo_password or None))
+    state = State(inventory, Config(SUDO=sudo, SUDO_PASSWORD=sudo_password or None))
     state.print_output = True
     state.add_callback_handler(Failures())
     state.set_stage(StateStage.Setup)

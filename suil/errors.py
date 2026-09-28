@@ -1,10 +1,22 @@
+import logging
+
+log = logging.getLogger(__name__)
+
 
 class SuilError(Exception):
-    """ Base class of every error the runner raises deliberately """
+    """ Base class of every error the runner raises deliberately; it logs itself when made """
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        log.error(message)
 
 
 class DirectoryRoleExists(SuilError):
     """ Role Already Registered into Directory """
+
+
+class DirectoryError(SuilError):
+    """ A run was asked for both a role and a node """
 
 
 class DataError(SuilError):

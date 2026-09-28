@@ -1,12 +1,9 @@
 import base64
 
-from suil.config import cfg
 from suil.errors import SecretError
 
 
-def string_encrypt(plain: str, recipient: str | None = None) -> str:
-    recipient = recipient or cfg.age_recipient
-
+def string_encrypt(plain: str, recipient: str | None) -> str:
     if not recipient:
         raise SecretError('SUIL_AGE_RECIPIENT is not set, nothing to encrypt to')
 

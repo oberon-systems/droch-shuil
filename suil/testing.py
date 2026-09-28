@@ -7,13 +7,18 @@ author's business.
 
 import pytest
 
-from suil.config import cfg
 from suil.libs import module_load_code
+from suil.workspace import Workspace
 
 
 @pytest.fixture(scope='session')
-def modules_dir():
-    return cfg.modules_dir
+def workspace():
+    return Workspace()
+
+
+@pytest.fixture(scope='session')
+def modules_dir(workspace):
+    return workspace.modules_dir
 
 
 @pytest.fixture(scope='session')

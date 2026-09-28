@@ -1,230 +1,116 @@
-import click
-import yaml
+import logging
 
 from pyinfra.api.exceptions import PyinfraError
 
-from suil.config import cfg
-from suil.directory import directory
 from suil.errors import DeploymentError, SuilError
-from suil.libs import (module_collect_facts, module_get_config, module_get_facts,
-                       module_get_public, module_get_signature, module_run_check, module_run_drift,
-                       module_run_code, node_probe_os,
-                       pyinfra_connect, pyinfra_make_inventory, pyinfra_make_state,
-                       pyinfra_read_failures, pyinfra_run_state, role_get_nodes,
-                       run_build_directory)
-from suil.tui import bad, info, ok, warn
+from suil.libs import (module_collect_facts, module_get_config, module_get_facts, module_get_public,
+                       module_get_signature, module_run_check, module_run_code, module_run_drift,
+                       node_probe_os, pyinfra_connect, pyinfra_make_inventory, pyinfra_make_state,
+                       pyinfra_read_failures, pyinfra_run_state, run_build_directory)
+from suil.log import OK
+
+log = logging.getLogger(__name__)
 
 
-def deployment_targets(roles=(), nodes=()) -> list[str]:
-    targets = []
+class Deployment:
 
-    for role in roles:
-        for node in sorted(role_get_nodes(role, cfg.nodes_dir)):
-            if node not in targets:
-                targets.append(node)
+    def __init__(self, settings, directory, force=False, dry_run=False):
+        self.settings = settings
+        self.directory = directory
+        self.workspace = directory.workspace
+        self.force = force
+        self.dry_run = dry_run
 
-    for node in nodes:
-        if node not in targets:
-            targets.append(node)
+    def run(self) -> None:
+        for node in self.directory.nodes:
+            state, host, probe = self.connect(node)
+            node = self.directory.probe(node.name, probe['family'], probe['release'])
+            configs, public = self.configs(node)
 
-    return targets
+            try:
+                self.node(state, host, node, configs, public)
+            finally:
+                run_build_directory({node.name: {**vars(node), 'public': public}}, self.workspace.runs_dir)
 
+    def connect(self, node):
+        """Connect first, because the OS layer of the hierarchy is the one whose
+        variables are not in the data - only the target knows them."""
+        inventory = pyinfra_make_inventory({node.name: node.deployment})
+        state = pyinfra_connect(pyinfra_make_state(inventory, self.settings.sudo_password))
+        host = state.inventory.get_host(node.name)
 
-def deployment_connect(targets: list[str]):
-    """Connect first, because the OS layer of the hierarchy is the one whose
-    variables are not in the data - only the target knows them."""
-    bootstrap = {name: directory.node(name).deployment for name in targets}
-    state = pyinfra_connect(pyinfra_make_state(pyinfra_make_inventory(bootstrap)))
-
-    for host in state.inventory.get_active_hosts():
         try:
-            probe = node_probe_os(host, cfg.facts_dir)
+            probe = node_probe_os(host, self.workspace.facts_dir)
         except PyinfraError as error:
             raise DeploymentError(pyinfra_read_failures(state) or str(error)) from error
 
-        directory.probe(directory.node(host.name), probe['family'], probe['release'])
+        return state, host, probe
 
-    return state
+    def configs(self, node) -> tuple[dict, dict]:
+        """The module configs of a node, secrets in plaintext, and the same with every secret a digest."""
+        configs = {module: module_get_config(module, node, self.workspace.modules_dir, self.settings.age_key)
+                   for module in node.modules}
+        public = {module: module_get_public(module, node, configs[module], self.settings.age_key)
+                  for module in node.modules}
 
+        return configs, public
 
-def deployment_build(targets, modules=()) -> dict:
-    """The catalogue from local data alone: the OS layer comes from the cached
-    probe, so the brief is printable before anything is connected to."""
-    catalogue = {}
+    def node(self, state, host, node, configs, public) -> None:
+        # Read before the collection below, which records the current signature.
+        signatures = {module: module_get_facts(node.name, module, self.workspace.facts_dir).get('signature')
+                      for module in node.modules}
 
-    for name in targets:
-        node = directory.node(name)
-        probe = module_get_facts(name, 'suil', cfg.facts_dir).get('facts') or {}
+        self.facts(host, node, configs, public)
+        applied = []
 
-        if probe:
-            directory.probe(node, probe['family'], probe['release'])
-
-        selected = [item for item in node.modules if not modules or item in modules]
-        configs = {item: module_get_config(item, node, cfg.modules_dir) for item in selected}
-
-        catalogue[name] = {
-            'role':       node.role,
-            'family':     node.family,
-            'release':    node.release,
-            'facts':      bool(probe),
-            'deployment': node.deployment,
-            'modules':    selected,
-            'configs':    configs,
-            'public':     {item: module_get_public(item, node, configs[item])
-                           for item in selected},
-        }
-
-    return catalogue
-
-
-def counted(count: int, word: str) -> str:
-    return f"{count} {word}{'' if count == 1 else 's'}"
-
-
-def deployment_show(catalogue: dict) -> None:
-    seen, blind = [], []
-
-    info('\n=== deployment ===\n')
-
-    for name, entry in catalogue.items():
-        line = f"{name} ({entry['role']}, "
-
-        if entry.get('facts'):
-            info(line + f"{entry['family']} {entry['release']})")
-        else:
-            warn(line + 'no facts)')
-            blind.append(name)
-
-        for module in entry['modules']:
-            info(f'  {module}')
-
-            if module not in seen:
-                seen.append(module)
-
-        info('')
-
-    info(f"{counted(len(catalogue), 'node')}, {counted(len(seen), 'module')}")
-
-    if blind:
-        warn('no facts for: ' + ', '.join(blind))
-        warn('the modules above are provisional - the exact set and order '
-             'are known only after the facts are collected')
-
-    info('')
-
-
-def deployment(roles=(), nodes=(), modules=(), force=False, confirm=False, dry_run=False) -> dict:
-    targets = deployment_targets(roles, nodes)
-
-    if not targets:
-        warn('nothing to deploy')
-        return {}
-
-    catalogue = deployment_build(targets, modules)
-
-    if not catalogue:
-        warn('nothing to deploy')
-        return {}
-
-    deployment_show(catalogue)
-
-    if not confirm and not click.confirm('Apply?', default=False):
-        return {}
-
-    state = deployment_connect(targets)
-    catalogue = deployment_build(targets, modules)
-
-    # Read before the collection below, which records the current signature.
-    signatures = {(name, module): module_get_facts(name, module, cfg.facts_dir).get('signature')
-                  for name, entry in catalogue.items() for module in entry['modules']}
-
-    # Every run, not only the first: a record from last time describes the host as it was.
-    deployment_facts(state, catalogue)
-
-    directory_path = run_build_directory(catalogue, cfg.runs_dir)
-    info(f'run catalogue: {directory_path}\n')
-    applied = []
-
-    for host in state.inventory.get_active_hosts():
-        entry = catalogue[host.name]
-
-        for module in entry['modules']:
-            changed = force or signatures[(host.name, module)] != module_get_signature(module, cfg.modules_dir)
-            facts = module_get_facts(host.name, module, cfg.facts_dir).get('facts') or {}
+        for module in node.modules:
+            changed = self.force or signatures[module] != module_get_signature(module, self.workspace.modules_dir)
+            facts = module_get_facts(node.name, module, self.workspace.facts_dir).get('facts') or {}
             queued = len(state.ops[host])
 
-            module_run_code(state, host, module, entry['configs'][module], facts, changed, cfg.modules_dir)
+            module_run_code(state, host, module, configs[module], facts, changed, self.workspace.modules_dir)
 
             if len(state.ops[host]) > queued:
-                applied.append((host.name, module))
+                applied.append(module)
 
-    if not applied:
-        ok('\nnothing to apply\n')
-    else:
-        pyinfra_run_state(state, dry_run=dry_run)
+        if not applied:
+            log.log(OK, f'{node.name}: nothing to apply')
+        else:
+            pyinfra_run_state(state, dry_run=self.dry_run)
 
-        if dry_run:
-            warn('\ndry run: nothing applied\n')
-            return catalogue
+            if self.dry_run:
+                log.warning(f'{node.name}: dry run, nothing applied')
+                return
 
-        deployment_facts(state, catalogue, only=applied)
-        ok(f"\napplied: {counted(len({node for node, _ in applied}), 'node')}, "
-           f"{counted(len(applied), 'module')}\n")
+            self.facts(host, node, configs, public, only=applied)
 
-    deployment_check(state, catalogue)
+        self.check(node, configs)
 
-    return catalogue
-
-
-def deployment_check(state, catalogue: dict) -> None:
-    """What the modules find broken, and what still differs from expected(), in the facts after the run."""
-    problems = []
-
-    for host in state.inventory.get_active_hosts():
-        entry = catalogue[host.name]
-
-        for module in entry['modules']:
-            facts = module_get_facts(host.name, module, cfg.facts_dir).get('facts') or {}
-            problems += [f'{host.name}, module {module}: {problem}'
-                         for problem in module_run_check(module, entry['configs'][module], facts, cfg.modules_dir)]
-
-            drift = module_run_drift(module, entry['configs'][module], facts, cfg.modules_dir)
-
-            if drift:
-                problems.append(f"{host.name}, module {module}: still differs after the run: {', '.join(drift)}")
-
-    if problems:
-        raise DeploymentError('not up after the run\n\n' + '\n'.join(problems))
-
-
-def deployment_facts(state, catalogue: dict, only=None) -> None:
-    """Read the target. `only` narrows to the (node, module) pairs given."""
-    info('\n--> Collecting facts...')
-
-    for host in state.inventory.get_active_hosts():
-        for module in catalogue[host.name]['modules']:
-            if only is not None and (host.name, module) not in only:
+    def facts(self, host, node, configs, public, only=None) -> None:
+        """Read the target. `only` narrows to the modules given."""
+        for module in node.modules:
+            if only is not None and module not in only:
                 continue
 
             try:
-                module_collect_facts(host, module, catalogue[host.name]['public'][module],
-                                     catalogue[host.name]['configs'][module], cfg.modules_dir, cfg.facts_dir)
-            except SuilError as error:
-                bad(f'{host.name}: {module} facts not collected: {error}')
+                module_collect_facts(host, module, public[module], configs[module],
+                                     self.workspace.modules_dir, self.workspace.facts_dir)
+            except SuilError:
+                log.warning(f'{node.name}: {module} facts not collected')
 
+    def check(self, node, configs) -> None:
+        """What the modules find broken, and what still differs from expected(), in the facts after the run."""
+        problems = []
 
-def deployment_config(roles=(), nodes=(), modules=()) -> dict:
-    """The run catalogue and nothing else: resolve and print, never connect."""
-    targets = deployment_targets(roles, nodes)
+        for module in node.modules:
+            facts = module_get_facts(node.name, module, self.workspace.facts_dir).get('facts') or {}
+            problems += [f'{node.name}, module {module}: {problem}'
+                         for problem in module_run_check(module, configs[module], facts, self.workspace.modules_dir)]
 
-    if not targets:
-        return {}
+            drift = module_run_drift(module, configs[module], facts, self.workspace.modules_dir)
 
-    catalogue = deployment_build(targets, modules)
-    deployment_show(catalogue)
+            if drift:
+                problems.append(f"{node.name}, module {module}: still differs after the run: {', '.join(drift)}")
 
-    for name, entry in catalogue.items():
-        info(f'--- {name}')
-        print(yaml.safe_dump(entry['public'], default_flow_style=False, sort_keys=False))
-
-    return catalogue
+        if problems:
+            raise DeploymentError('not up after the run\n\n' + '\n'.join(problems))

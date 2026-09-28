@@ -1,65 +1,38 @@
-import click
+import logging
+
 import questionary
 
-from suil.config import cfg
-from suil.libs import roles_collect
+from suil.deployment import Deployment
+from suil.directory import Directory
+
+log = logging.getLogger(__name__)
 
 
-# Solarized Dark, as truecolor: green, red, yellow, base01.
-PALETTE = {
-    'ok':   (133, 153, 0),
-    'bad':  (220, 50, 47),
-    'warn': (181, 137, 0),
-    'info': (88, 110, 117),
-}
+def role_select(directory) -> str | None:
+    roles = directory.roles
 
+    if not roles:
+        return None
 
-def colored(text: str, kind: str) -> str:
-    if not cfg.log_color:
-        return text
-
-    return click.style(text, fg=PALETTE[kind])
-
-
-def ok(text: str) -> None:
-    print(colored(text, 'ok'))
-
-
-def bad(text: str) -> None:
-    print(colored(text, 'bad'))
-
-
-def warn(text: str) -> None:
-    print(colored(text, 'warn'))
-
-
-def info(text: str) -> None:
-    print(colored(text, 'info'))
-
-
-def select(message: str, choices) -> list[str]:
-    if not choices:
-        return []
-
-    return questionary.checkbox(
-        message,
-        sorted(choices),
+    return questionary.select(
+        'Please select a role for run deployment:\n',
+        sorted(roles),
         use_jk_keys=False,
         use_search_filter=True,
-    ).ask() or []
+    ).ask()
 
 
-def roles_select() -> list[str]:
-    return select(
-        'Please select roles for a list for run deployment:\n',
-        roles_collect(cfg.roles_dir),
-    )
+def tui(workspace, settings):
+    log.info('\n=== Balor Suil: an infrastructure manager ===\n')
+    directory = Directory(workspace, role=role_select(Directory(workspace)))
 
+    if not directory.nodes:
+        log.warning('nothing to deploy')
+        return
 
-def tui():
-    # Imported here, not at module level: deployment.py imports this file back.
-    from suil.deployment import deployment
+    directory.show()
 
-    info('\n=== Balor Suil: an infrastructure manager ===\n')
+    if not questionary.confirm('Apply?', default=False).ask():
+        return
 
-    return deployment(roles=roles_select())
+    Deployment(settings, directory).run()

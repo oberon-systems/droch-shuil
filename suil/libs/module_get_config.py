@@ -6,7 +6,7 @@ from .config_strip_secrets import config_reveal_secrets
 from .module_load_code import module_load_code
 
 
-def module_get_config(module: str, node, modules_dir: Path):
+def module_get_config(module: str, node, modules_dir: Path, age_key: str | None):
     """The module's slice of the node config, validated by its own pydantic model.
 
     Returns the model instance when the module ships code/config.py, and the
@@ -21,7 +21,7 @@ def module_get_config(module: str, node, modules_dir: Path):
         'ssh_user': (node.deployment or {}).get('ssh_user'),
     }
 
-    data = config_reveal_secrets(data)
+    data = config_reveal_secrets(data, age_key)
     code = module_load_code(module, modules_dir, part='config')
 
     if code is None:

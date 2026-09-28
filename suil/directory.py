@@ -1,6 +1,17 @@
-from suil.config import cfg
-from suil.libs import (config_expand_lookups, deep_merge, deep_merge_unwrap, inventory_lookup,
-                       module_get_defaults, module_get_order, nodes_collect, role_get_nodes, yaml_load_data)
+import copy
+import logging
+
+from pathlib import Path
+
+from suil.errors import DataError, DirectoryError
+from suil.libs import (config_expand_lookups, deep_merge, deep_merge_unwrap, module_get_defaults,
+                       module_get_facts, module_get_order, yaml_load_data)
+
+log = logging.getLogger(__name__)
+
+
+def counted(count: int, word: str) -> str:
+    return f"{count} {word}{'' if count == 1 else 's'}"
 
 
 class NodeStorage:
@@ -11,6 +22,7 @@ class NodeStorage:
             'modules': [],
             'family': None,
             'release': None,
+            'facts': False,
             'deployment': {},
         }
 
@@ -18,154 +30,160 @@ class NodeStorage:
 
         self.__dict__.update(data)
 
-    def update(self, **kwargs):
-        self.__dict__.update(kwargs)
-
-
-class RoleStorage:
-    def __init__(self, **kwargs):
-        data = {
-            'name': None,
-            'nodes': set(),
-            'modules': [],
-        }
-
-        data.update(kwargs)
-
-        self.__dict__.update(data)
-
-    def update(self, **kwargs):
-        self.__dict__.update(kwargs)
-
 
 class Directory:
-    def __init__(self):
-        self._nodes = {}
-        self._roles = {}
-        self._views = {}
-        self._common = None
+    """One run, every node of it resolved through the hierarchy when it is made.
+
+    Nothing changes it afterwards but probe(), and what it hands out is a copy.
+    """
+
+    def __init__(self, workspace, role=None, node=None):
+        if role and node:
+            raise DirectoryError('give a role or a node, not both')
+
+        common = yaml_load_data(workspace.data_dir / 'common.yaml') or {}
+
+        object.__setattr__(self, '_workspace', workspace)
+        object.__setattr__(self, '_common', common)
+        object.__setattr__(self, '_hierarchy', tuple(common.get('hierarchy', [])))
+
+        names = (node,) if node else ()
+
+        if role:
+            self.resolve(self._pattern('role'), required=True, role=role)
+            names = tuple(name for name, found in self.inventory.items() if found == role)
+
+        merged = {}
+
+        for name in names:
+            probe = module_get_facts(name, 'suil', workspace.facts_dir).get('facts') or {}
+            merged[name] = self._merge(name, probe.get('family'), probe.get('release'))
+
+        object.__setattr__(self, '_merged', merged)
+        object.__setattr__(self, '_nodes', {})
+
+        self._lookup(*names)
+
+    def __setattr__(self, name, value):
+        raise AttributeError('a Directory does not change once it is made')
 
     @property
-    def common(self) -> dict:
-        if self._common is None:
-            self._common = yaml_load_data(cfg.hierarchy_file) or {}
-        return self._common
+    def workspace(self):
+        return self._workspace
 
     @property
-    def hierarchy(self) -> list[str]:
-        return self.common.get('hierarchy', [])
-
-    def roles(self, name: str) -> RoleStorage:
-        fresh = name not in self._roles
-        role = self._role(name)
-
-        if fresh:
-            # a node loaded before its role has resolved against nothing
-            for node in self._nodes.values():
-                if node.role == name:
-                    self.resolve(node)
-
-        return role
-
-    def _role(self, name: str) -> RoleStorage:
-        """Read the role file and nothing else. Re-resolving is roles()' job,
-        and a lookup must be able to reach a role without triggering it."""
-        if name not in self._roles:
-            data = yaml_load_data(cfg.roles_dir / (name + '.yaml')) or {}
-
-            self._roles[name] = RoleStorage(
-                name=name,
-                nodes=role_get_nodes(name, cfg.nodes_dir),
-                **data,
-            )
-
-        return self._roles[name]
-
-    def node(self, name: str) -> NodeStorage:
-        if name not in self._nodes:
-            file = cfg.nodes_dir / (name + '.yaml')
-            data = yaml_load_data(file) or {}
-
-            node = NodeStorage(name=name, **data)
-
-            if node.role:
-                self.roles(node.role)
-
-            self._nodes[name] = node
-            self.resolve(node)
-
-        return self._nodes[name]
-
-    def probe(self, node: NodeStorage, family: str, release: int) -> NodeStorage:
-        """Fold in what only the target could tell us, then resolve for real."""
-        node.update(family=family, release=release)
-        self._views.pop(node.name, None)
-
-        return self.resolve(node)
-
-    def resolve(self, node: NodeStorage) -> NodeStorage:
-        data = config_expand_lookups(self._merge(node), self._expander(node.name))
-        node.update(**data)
-
-        return node
+    def nodes(self) -> tuple[NodeStorage, ...]:
+        return tuple(copy.deepcopy(node) for node in self._nodes.values())
 
     @property
-    def views(self) -> dict:
-        """Every node as the merge left it, lookups NOT expanded. That is what
-        keeps a lookup reading another node from recursing into itself."""
-        for name in nodes_collect(cfg.nodes_dir):
-            self._view(name)
+    def roles(self) -> set[str]:
+        return {path.stem for path in self._workspace.data_dir.glob(self._pattern('role').format(role='*'))}
 
-        return self._views
+    @property
+    def inventory(self) -> dict[str, str | None]:
+        paths = sorted(self._workspace.data_dir.glob(self._pattern('node').format(node='*')))
 
-    def _expander(self, name: str):
-        def expand(lookup):
-            return inventory_lookup(lookup, self.views, name)
+        return {path.stem: (yaml_load_data(path) or {}).get('role') for path in paths}
 
-        return expand
+    def probe(self, name: str, family: str, release: int) -> NodeStorage:
+        """The one change a Directory takes: the OS layer, which only the target knows."""
+        self._merged[name] = self._merge(name, family, release)
+        self._lookup(name)
 
-    def _view(self, name: str) -> dict:
-        if name not in self._views:
-            data = yaml_load_data(cfg.nodes_dir / (name + '.yaml')) or {}
-            self._views[name] = self._merge(NodeStorage(name=name, **data))
+        return copy.deepcopy(self._nodes[name])
 
-        return self._views[name]
+    def resolve(self, pattern: str, required: bool = False, **kwargs) -> Path | None:
+        path = self._workspace.data_dir / pattern.format(**kwargs)
 
-    def _merge(self, node: NodeStorage) -> dict:
-        role = self._role(node.role) if node.role else None
+        if path.is_file():
+            return path
 
-        declared = (role.modules if role else []) + node.modules
-        modules = (module_get_order(declared, cfg.modules_dir)
-                   if node.family else self._dedupe(declared))
+        if required:
+            raise DataError(f'{path.relative_to(self._workspace.base_dir)} does not exist')
+
+        return None
+
+    def show(self) -> None:
+        seen, blind = [], []
+
+        log.info('\n=== deployment ===\n')
+
+        for node in self._nodes.values():
+            line = f'{node.name} ({node.role}, '
+
+            if node.facts:
+                log.info(line + f'{node.family} {node.release})')
+            else:
+                log.warning(line + 'no facts)')
+                blind.append(node.name)
+
+            for module in node.modules:
+                log.info(f'  {module}')
+
+                if module not in seen:
+                    seen.append(module)
+
+            log.info('')
+
+        log.info(f"{counted(len(self._nodes), 'node')}, {counted(len(seen), 'module')}")
+
+        if blind:
+            log.warning('no facts for: ' + ', '.join(blind))
+            log.warning('the modules above are provisional - the exact set and order '
+                        'are known only after the facts are collected')
+
+        log.info('')
+
+    def _pattern(self, key: str) -> str:
+        for layer in self._hierarchy:
+            if '{' + key + '}' in layer:
+                return layer
+
+        raise DataError(f'the hierarchy in data/common.yaml has no {{{key}}} layer')
+
+    def _lookup(self, *names: str) -> None:
+        for name in names:
+            self._nodes[name] = NodeStorage(name=name, **config_expand_lookups(self._merged[name], self._merged, name))
+
+    def _merge(self, name: str, family: str | None, release: int | None) -> dict:
+        modules_dir = self._workspace.modules_dir
+        node = yaml_load_data(self.resolve(self._pattern('node'), required=True, node=name)) or {}
+        role = node.get('role')
+        role_data = yaml_load_data(self.resolve(self._pattern('role'), required=True, role=role)) or {} if role else {}
+
+        declared = (role_data.get('modules') or []) + (node.get('modules') or [])
+        modules = module_get_order(declared, modules_dir) if family else self._dedupe(declared)
 
         layer_vars = {
-            'family': node.family,
-            'release': node.release,
-            'role': node.role,
-            'node': node.name,
+            'family': family,
+            'release': release,
+            'role': role,
+            'node': name,
         }
 
-        data = {'deployment': self.common.get('deployment', {})}
+        data = {'deployment': self._common.get('deployment', {})}
 
         for module in modules:
-            data = deep_merge(data, module_get_defaults(module, cfg.modules_dir))
+            data = deep_merge(data, module_get_defaults(module, modules_dir))
 
-        for layer in self.hierarchy:
+        for layer in self._hierarchy:
             # a per-module layer is one file per module, the rest carry them all
             for module in (modules if '{module}' in layer else ['']):
-                data = deep_merge(data, self.layer(layer, module=module, **layer_vars))
+                data = deep_merge(data, self._layer_data(layer, module=module, **layer_vars))
 
         data = deep_merge_unwrap(data)
-        data['modules'] = modules
+        data.update(modules=modules, role=role, family=family, release=release, facts=family is not None)
 
         return data
 
-    def layer(self, layer: str, **layer_vars) -> dict:
+    def _layer_data(self, layer: str, **layer_vars) -> dict:
         # An unprobed node has no family yet, so the os layer is simply not read.
         if any(value is None for key, value in layer_vars.items() if '{' + key + '}' in layer):
             return {}
 
-        return yaml_load_data(cfg.data_dir / layer.format(**layer_vars)) or {}
+        path = self.resolve(layer, **layer_vars)
+
+        return (yaml_load_data(path) or {}) if path else {}
 
     @staticmethod
     def _dedupe(modules: list[str]) -> list[str]:
@@ -176,7 +194,3 @@ class Directory:
                 seen.append(module)
 
         return seen
-
-
-# init directory
-directory = Directory()

@@ -16,13 +16,13 @@ class Secret(str):
 
     __slots__ = ('_plain',)
 
-    def reveal(self) -> str:
+    def reveal(self, key: str | None = None) -> str:
         plain = getattr(self, '_plain', None)
 
         if plain is None:
             from suil.libs.string_decrypt import string_decrypt
 
-            plain = string_decrypt(str(self))
+            plain = string_decrypt(str(self), key)
             object.__setattr__(self, '_plain', plain)
 
         return plain
