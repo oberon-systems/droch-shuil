@@ -1,10 +1,11 @@
 import logging
 import sys
+import textwrap
 
 import click
 
 OK = 25
-logging.addLevelName(OK, 'OK')
+INDENT = ' ' * 4
 
 # Solarized Dark, as truecolor: base01, green, yellow, red.
 PALETTE = {
@@ -18,16 +19,25 @@ PALETTE = {
 class Formatter(logging.Formatter):
 
     def __init__(self, color: bool):
-        super().__init__('%(message)s')
+        super().__init__('[%(levelname)s]: %(message)s')
         self.color = color
 
-    def format(self, record) -> str:
-        text = super().format(record)
+    def formatMessage(self, record) -> str:
+        first, _, rest = super().formatMessage(record).partition('\n')
+        text = first + ('\n' + textwrap.indent(rest, INDENT) if rest else '')
 
         return click.style(text, fg=PALETTE[record.levelno]) if self.color else text
 
+    def formatException(self, exc_info) -> str:
+        return textwrap.indent(super().formatException(exc_info), INDENT)
+
 
 def log_setup(color: bool) -> None:
+    logging.addLevelName(OK, 'ok')
+
+    for level in (logging.INFO, logging.WARNING, logging.ERROR):
+        logging.addLevelName(level, logging.getLevelName(level).lower())
+
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(Formatter(color))
 
