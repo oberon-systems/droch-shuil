@@ -6,7 +6,7 @@ import yaml
 from suil.config import Config
 from suil.deployment import Deployment
 from suil.directory import Directory
-from suil.errors import SuilError
+from suil.errors import errors_handler
 from suil.libs import module_get_names, module_get_order, module_get_requires, string_decrypt, string_encrypt
 from suil.log import log_setup
 from suil.tui import tui
@@ -130,8 +130,6 @@ def decrypt_command(obj, value):
     print(string_decrypt(value, settings.age_key))
 
 
+@errors_handler
 def cli():
-    try:
-        main()
-    except SuilError:
-        raise SystemExit(1)
+    main()
