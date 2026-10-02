@@ -1,14 +1,17 @@
 """Fixtures a module's own tests run on, published as a pytest plugin.
 
 The runner knows nothing about any module: it hands out the modules directory,
-a node context and a loader, and what is tested with them is the module
-author's business.
+a node context, a loader and the requires resolution, and what is tested with
+them is the module author's business.
 """
 
 import pytest
 
 from suil.libs import module_load_code
+from suil.sdk.libs.module import get_order, get_requires
 from suil.workspace import Workspace
+
+__all__ = ['get_order', 'get_requires']
 
 
 @pytest.fixture(scope='session')
