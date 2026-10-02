@@ -4,7 +4,7 @@ import sys
 
 from pathlib import Path
 
-from suil.errors import ModuleError
+from suil.sdk.errors import ModuleError
 
 from ...protocols import Collects
 

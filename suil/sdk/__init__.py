@@ -1,7 +1,6 @@
 """The one import surface of a module: the models, the interfaces, their protocols and the libs."""
 
-from suil.errors import ModuleError, ModuleValidateError
-
+from .errors import Error, ModuleError, ModuleValidateError
 from .models import Config, Context, Encrypted, Lookup, Secret, Tagged
 from . import libs
 from .facter import Facter
@@ -25,6 +24,7 @@ __all__ = [
     'Checks',
     'DeclaresFiles',
     'Collects',
+    'Error',
     'ModuleError',
     'ModuleValidateError',
     'SDK_VERSION',

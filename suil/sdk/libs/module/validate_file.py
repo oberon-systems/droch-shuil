@@ -1,6 +1,6 @@
 import shlex
 
-from suil.errors import ModuleValidateError
+from suil.sdk.errors import ModuleValidateError
 
 from ..host.put_content import put_content
 from ..host.run_command import run_command

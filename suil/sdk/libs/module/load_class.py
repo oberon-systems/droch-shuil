@@ -2,7 +2,7 @@ import inspect
 
 from pathlib import Path
 
-from suil.errors import ModuleError
+from suil.sdk.errors import ModuleError
 
 from ...protocols import Checks, DeclaresFiles, Deploys, Expects
 from .load_code import load_code

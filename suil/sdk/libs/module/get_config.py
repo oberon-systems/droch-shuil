@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from suil.errors import ModuleConfigError
+from suil.sdk.errors import ModuleConfigError
 from suil.sdk.models import Secret
 
 from ..config.strip_secrets import reveal_secrets, strip_secrets

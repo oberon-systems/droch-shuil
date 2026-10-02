@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 from types import ModuleType
 
-from suil.errors import ModuleError
+from suil.sdk.errors import ModuleError
 
 # Modules are imported under a synthetic parent rather than off sys.path, so a
 # module named `ssh` or `packages` cannot shadow an installed package.

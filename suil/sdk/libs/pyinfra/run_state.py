@@ -10,7 +10,7 @@ from pyinfra.api.state import BaseStateCallback, StateStage
 from pyinfra_cli.log import setup_logging
 from pyinfra_cli.prints import print_meta, print_results
 
-from suil.errors import DeploymentError
+from suil.sdk.errors import DeploymentError
 
 
 class Failures(BaseStateCallback):

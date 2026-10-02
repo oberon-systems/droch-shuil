@@ -1,4 +1,4 @@
-from suil.errors import DataError
+from suil.sdk.errors import DataError
 
 
 class Lookup:

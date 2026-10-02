@@ -6,7 +6,7 @@ import pytest
 
 from pydantic import BaseModel, ValidationError
 
-from suil.errors import ModuleConfigError
+from suil.sdk.errors import ModuleConfigError
 from suil.sdk.libs.config import reveal_secrets, strip_secrets
 from suil.sdk.libs.module import get_config, get_public
 from suil.sdk.models import Encrypted, Secret

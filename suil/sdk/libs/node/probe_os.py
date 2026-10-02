@@ -5,7 +5,7 @@ import yaml
 
 from pyinfra.facts.server import OsRelease
 
-from suil.errors import NodeProbeError
+from suil.sdk.errors import NodeProbeError
 
 # os-release ID and ID_LIKE to the family that names a directory under data/os/.
 FAMILIES = {

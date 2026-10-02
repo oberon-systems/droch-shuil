@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from suil.errors import ModuleError, ModuleOrderError
+from suil.sdk.errors import ModuleError, ModuleOrderError
 
 from .get_requires import get_requires
 

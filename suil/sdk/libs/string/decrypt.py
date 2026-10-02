@@ -1,7 +1,7 @@
 import base64
 import re
 
-from suil.errors import SecretError
+from suil.sdk.errors import SecretError
 
 # The marker as it survives both YAML forms: the tag name and the folded string.
 MARKER = re.compile(r'^\s*!ENC\[\s*(?P<payload>[A-Za-z0-9+/=\s]+?)\s*\]\s*$')

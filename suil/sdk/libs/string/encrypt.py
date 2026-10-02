@@ -1,6 +1,6 @@
 import base64
 
-from suil.errors import SecretError
+from suil.sdk.errors import SecretError
 
 
 def encrypt(plain: str, recipient: str | None) -> str:

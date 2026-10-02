@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from suil.errors import DataError
+from suil.sdk.errors import DataError
 
 from ..yaml.load_data import load_data
 

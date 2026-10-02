@@ -6,7 +6,7 @@ from pathlib import Path
 
 import yaml
 
-from suil.errors import ModuleError
+from suil.sdk.errors import ModuleError
 
 from ... import facter
 from ...protocols import DeclaresFiles

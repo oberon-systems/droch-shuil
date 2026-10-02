@@ -1,4 +1,4 @@
-from suil.errors import DataError
+from suil.sdk.errors import DataError
 from suil.sdk.models import Lookup
 
 from ..inventory.lookup import lookup

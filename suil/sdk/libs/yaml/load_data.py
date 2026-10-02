@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from suil.errors import DataError
+from suil.sdk.errors import DataError
 from suil.sdk.models import Tagged
 
 from .load import load

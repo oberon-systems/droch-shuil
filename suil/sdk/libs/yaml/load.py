@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 
-from suil.errors import DataError
+from suil.sdk.errors import DataError
 from suil.sdk.models import Encrypted, Lookup, Tagged
 
 # The block form is a plain string by the time PyYAML is done with it: a folded

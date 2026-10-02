@@ -1,7 +1,7 @@
 import json
 import shlex
 
-from suil.errors import ModuleError
+from suil.sdk.errors import ModuleError
 
 from ..host.run_command import run_command
 
