@@ -1,3 +1,4 @@
+from .check_facter import check_facter
 from .collect_facts import collect_facts
 from .collect_files import collect_files
 from .diff_configs import diff_configs
@@ -22,6 +23,7 @@ from .run_drift import run_drift
 from .validate_file import validate_file
 
 __all__ = [
+    'check_facter',
     'collect_facts',
     'collect_files',
     'diff_configs',

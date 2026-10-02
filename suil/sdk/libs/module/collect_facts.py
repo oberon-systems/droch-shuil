@@ -8,6 +8,7 @@ import yaml
 
 from suil.errors import ModuleError
 
+from ... import facter
 from ...protocols import DeclaresFiles
 from ..host.put_content import put_content
 from ..host.run_command import run_command
@@ -52,19 +53,19 @@ def collect_facts(host, module: str, config, instance: DeclaresFiles | None, mod
 
 def _collector(host, module: str, config, collector: Path) -> dict:
     payload = {key: value for key, value in config.items() if key != 'suil'}
+    uploads = {
+        'facter':    (host.get_temp_filename(f'{module}-facter'), Path(facter.__file__).read_text()),
+        'collector': (host.get_temp_filename(f'{module}-collector'), collector.read_text()),
+        'config':    (host.get_temp_filename(f'{module}-config'), json.dumps(payload)),
+    }
 
-    remote_code = host.get_temp_filename(f'{module}-collector')
-    remote_conf = host.get_temp_filename(f'{module}-config')
+    for what, (remote, content) in uploads.items():
+        if not put_content(host, content, remote):
+            raise ModuleError(f'cannot upload the {module} {what} to {host.name}')
 
-    if not put_content(host, collector.read_text(), remote_code):
-        raise ModuleError(f'cannot upload the {module} collector to {host.name}')
-
-    if not put_content(host, json.dumps(payload), remote_conf):
-        raise ModuleError(f'cannot upload the {module} config to {host.name}')
-
-    status, stdout, stderr = run_command(
-        host, f'python3 {shlex.quote(remote_code)} {shlex.quote(remote_conf)}')
-    run_command(host, f'rm -f {shlex.quote(remote_code)} {shlex.quote(remote_conf)}')
+    remotes = ' '.join(shlex.quote(remote) for remote, _ in uploads.values())
+    status, stdout, stderr = run_command(host, f'python3 {remotes}')
+    run_command(host, f'rm -f {remotes}')
 
     if not status:
         raise ModuleError(f'{host.name}: the {module} collector failed\n{(stderr or stdout).strip()}')
