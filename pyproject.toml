@@ -19,7 +19,24 @@ suil = "suil.testing"
 
 # The package dir is the project dir: DESIGN.md names suil/libs/, not suil/suil/libs/.
 [tool.setuptools]
-packages = ["suil", "suil.libs"]
+packages = [
+    "suil",
+    "suil.libs",
+    "suil.sdk",
+    "suil.sdk.models",
+    "suil.sdk.libs",
+    "suil.sdk.libs.config",
+    "suil.sdk.libs.host",
+    "suil.sdk.libs.inventory",
+    "suil.sdk.libs.merge",
+    "suil.sdk.libs.module",
+    "suil.sdk.libs.node",
+    "suil.sdk.libs.pyinfra",
+    "suil.sdk.libs.role",
+    "suil.sdk.libs.run",
+    "suil.sdk.libs.string",
+    "suil.sdk.libs.yaml",
+]
 
 [tool.setuptools.package-dir]
 suil = "."
