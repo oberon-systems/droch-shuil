@@ -210,9 +210,14 @@ modules, which are not edited until the runner moves. Then:
   and the `run_*` libs of `suil.sdk`, and `errors_handler` treats
   `suil.sdk.errors.Error` as its own;
 - every module moves in one commit: free functions become methods of its
-  `Module`, the collector becomes a `Facter`, secret fields become `Secret`;
-- `suil/libs/`, `suil/models.py`, `suil/module.py` and their tests are
-  deleted.
+  `Module`, the collector becomes a `Facter`, secret fields become `Secret`,
+  and its tests take `get_order` and `get_requires` from `suil.testing`;
+- `suil/libs/`, `suil/models.py` and their tests are deleted.
+
+`suil/tests/test_modules_import_sdk.py` holds the line meanwhile. It fails on
+a `suil.*` import from `modules/` other than `suil.sdk` and `suil.testing`.
+Its `PENDING` set names the modules not moved yet, and a module leaves that
+set in the commit that moves it.
 
 Behaviour on hosts does not change: the same config queues the same
 operations.
