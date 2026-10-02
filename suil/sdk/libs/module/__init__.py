@@ -14,6 +14,7 @@ from .get_order import get_order
 from .get_public import get_public
 from .get_requires import get_requires
 from .get_signature import get_signature
+from .load_class import load_class
 from .load_code import load_code
 from .run_check import run_check
 from .run_code import run_code
@@ -37,6 +38,7 @@ __all__ = [
     'get_public',
     'get_requires',
     'get_signature',
+    'load_class',
     'load_code',
     'run_check',
     'run_code',
