@@ -1,10 +1,10 @@
 from pydantic import BaseModel
 
-from suil.sdk.models import Encrypted
+from suil.sdk.models import Encrypted, Secret
 
 
 def strip_secrets(data):
-    """Replace every Encrypted with sha256:<hex of the plaintext>.
+    """Replace every Encrypted and Secret with sha256:<hex of the plaintext>.
 
     Enough to notice that a secret changed, not enough to leak one - which is
     what lets the run catalogue and the facts be looked at and diffed.
@@ -12,9 +12,12 @@ def strip_secrets(data):
     if isinstance(data, Encrypted):
         return data.digest()
 
-    # A module config arrives as its pydantic model, which yaml cannot represent.
+    if isinstance(data, Secret):
+        return data.digest() if data else ''
+
+    # A module config arrives as its pydantic model; its Secret fields digest themselves.
     if isinstance(data, BaseModel):
-        return strip_secrets(data.model_dump(mode='json'))
+        return strip_secrets(data.model_dump(mode='json', context={'public': True}))
 
     if isinstance(data, dict):
         return {key: strip_secrets(value) for key, value in data.items()}
@@ -26,9 +29,9 @@ def strip_secrets(data):
 
 
 def reveal_secrets(data, key: str | None):
-    """The other direction: hand a module the plaintext, in memory only."""
+    """The other direction: hand a module the plaintext as a Secret, in memory only."""
     if isinstance(data, Encrypted):
-        return data.reveal(key)
+        return Secret(data.reveal(key))
 
     if isinstance(data, dict):
         return {name: reveal_secrets(value, key) for name, value in data.items()}
