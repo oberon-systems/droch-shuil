@@ -1,119 +1,94 @@
 # Suil SDK
 
-Modules get one supported import surface, `suil.sdk`, and it consists of three
-interfaces: `Module`, `Config` and `Facter`. A module is built on them, and the
-runner accepts nothing else. Everything outside `suil.sdk` becomes private and
-may change without breaking a module, which is what makes the later split into
-separate repositories possible.
+Modules get one supported import surface, `suil.sdk`: the models, three
+interfaces with their protocols, the libs and the errors. A module is built on
+them, and everything outside `suil.sdk` is private to suil. That is what makes
+the later split into separate repositories possible.
 
-## Today
+- [Layout](#layout)
+- [Interfaces](#interfaces)
+- [Protocols](#protocols)
+- [Secrets](#secrets)
+- [Libs and errors](#libs-and-errors)
+- [Examples](#examples)
+- [Migration](#migration)
+- [Acceptance](#acceptance)
 
-- Module code imports `SuilConfig` from `suil.models`, `ModuleError` and
-  `ModuleValidateError` from `suil.errors`, and helpers straight from
-  `suil.libs`: `module_diff_configs`, `module_diff_names`,
-  `module_diff_touches`, `module_file_digest`, `module_file_needs_write`,
-  `module_validate_file`, `module_get_defaults`, `deep_merge`,
-  `deep_merge_unwrap`.
-- Module tests also import `module_get_order` and `module_get_requires`.
-- `suil/module.py` holds `ModuleInterface` and `FactCollectorInterface`, ABC
-  mixins nothing uses. Their `deploy(config, facts)` and `collect(config)`
-  do not match the contract the runner calls.
-- Modules find their own `templates/` and `files/` through
-  `Path(__file__).resolve().parent.parent`, and each builds its own Jinja
-  environment.
+## Layout
 
-## Design
+```text
+suil/sdk/
+  __init__.py       the import surface and SDK_VERSION
+  models/           Context, Config, Secret, Encrypted, Tagged, Lookup
+  protocols.py      Deploys, Expects, Checks, DeclaresFiles, Collects
+  module.py         Module
+  facter.py         Facter and the bootstrap that runs it on the node
+  errors.py         Error and its subclasses
+  libs/<kind>/      one function per file, by kind
+```
 
-- A module implements all three interfaces: its `Config` in `code/config.py`,
-  its `Module` in `code/main.py`, its `Facter` in `facts/collector.py`. Each
-  file declares exactly one subclass.
-- Every function of an interface is a `typing.Protocol`. The interface is the
-  set of protocols it is made of, and a module is checked against those
-  protocols when it is loaded, before anything connects.
-- The runner works only through the interfaces. It instantiates the module's
-  classes and calls their methods; it never looks up a free function by name
-  and never builds a diff.
-- `suil.sdk` exports the three interfaces, their protocols, `File`,
-  `SuilContext`, `Secret`, the module errors and `SDK_VERSION`, SemVer from
-  `0.1.0`.
-  Test helpers such as `module_get_order` go through `suil.testing`.
+The SDK is models, interfaces, protocols and libs, and nothing else. How a
+module works inside is its own business: suil is a deployer and does not
+decide what a module writes or where. The order of its operations, its
+rendering and its restart conditions belong to the module.
 
 ## Interfaces
 
+A module implements up to three interfaces, one subclass per file:
+`Config` in `code/config.py`, `Module` in `code/main.py` and `Facter` in
+`facts/collector.py`. A module with no code is a meta module, as `base` is,
+and implements none.
+
 ### Config
 
-`Config` is a [pydantic](https://docs.pydantic.dev) v2 base model with
-`extra='forbid'`. The runner fills `suil`, a `SuilContext` with node, role,
-family, release and ssh user, and validates the rest from the merged data.
-
-A secret field is typed `Secret`, and inside the model it holds the
-plaintext. The public view is built by suil, not by the module: suil replaces
-every `Secret` field with its `sha256:` digest, by field, from the types,
-instead of matching plaintext values after the fact.
+`Config` is a [pydantic](https://docs.pydantic.dev) v2 model with
+`extra='forbid'`, so a key the model does not know fails validation in any
+data layer. `get_config` fills `suil`, a `Context` with `node`, `role`,
+`family`, `release` and `ssh_user`, and validates the rest from the merged
+data.
 
 ### Module
 
-`Module` is generic over its `Config`. The runner builds it once per node with
-the validated config, `Module(config)`, and calls:
+`Module` is generic over its `Config`. `Module(config)` is built once per node
+with the validated config. Its methods:
 
-- `deploy(facts, force)` - queue the operations that close the diff.
-- `expected()` - the state the facts must match.
-- `check(facts)` - problems judged from the facts; optional.
-- `files()` - the `File` resources the module declares; optional.
+- `deploy(facts, force)` - queue the operations that close the diff;
+  mandatory.
+- `expected()` - the state the facts must match; mandatory.
+- `check(facts)` - problems judged from the facts; empty by default.
+- `files()` - `{path: content | None}` for every file the module puts on the
+  node, `None` for one that must go; empty by default.
 
-The base class carries what every module needs, as methods instead of free
-helpers:
+The constructor attaches every function of `libs/module/` to the instance
+under its own name, so a module calls `self.diff_configs(...)` or
+`self.file_needs_write(...)` without importing them. The module writes its
+files itself and gates each write with `file_needs_write`. Their digests stay
+in `expected()`.
 
-- `diff(facts)` - `expected()` against the facts, keyed by tuple paths.
-- `touches(diff, *path)`, `names(diff, collection)` - narrowing a diff.
-- `changed(path)` - whether suil queued a write or a removal of that file in
-  this run, for a module that restarts a service after its config changed.
-- `path(*parts)`, `render(template, **context)` - the module's own files and
-  templates, resolved only inside the module root and rendered by one narrow
-  Jinja environment.
-
-## Resources
-
-### File
-
-A file on the node is a resource of suil, like `file` in
-[Puppet](https://www.puppet.com/docs/puppet/latest/types/file.html). The
-module declares what the file must be; suil reads it on the node, compares,
-validates, writes and removes it. No module reads, digests or writes a file
-itself.
-
-`File` is a frozen record:
-
-- `path` - the absolute path on the node.
-- `ensure` - `present` or `absent`.
-- `content` - the bytes or text of the file, usually from `render()`.
-- `source` - a file under the module's `files/`, instead of `content`.
-- `owner`, `group`, `mode`.
-- `validate` - the node's own checker, `%s` where the staged path goes, as
-  `sshd -t -f %s`. A file it rejects never reaches its path.
-
-For every declared `File` suil reads the sha256, the owner, the group and the
-mode on the node and records them under `files` in the facts, beside what the
-`Facter` reports. Before `deploy()` suil queues the writes and the removals
-where the recorded state differs from the declared one, or all of them under
-force. After the run a file that still differs fails the run like any other
-drift, so a module's `expected()` no longer carries file digests.
+`load_class` imports `code/main.py` and returns its one `Module` subclass, or
+`None` for a meta module. It refuses a file with none or several, a class that
+does not override `deploy` or `expected`, and a method whose signature differs
+from its protocol's.
 
 ### Facter
 
-`Facter` is the only code that reads the node. It runs there, so it and
-`suil/sdk/facter.py`, which defines it, use the standard library only. The
-runner uploads both files, builds the module's facter with the public config,
-calls `collect()` and reads the JSON it returns.
+`Facter` is the only code that reads the node, so it runs there on the
+standard library alone. Its `config` is the public config without `suil`. It
+carries `read(path)`, `run(argv)` and `digest(value)`, which returns the same
+`sha256:` form a `Secret` has in the public view.
 
-The base class gives the facter `config`, the public config as a dict, and
-the reads every collector repeats today: `read(path)`, `run(argv)` and
-`digest(value)`, which returns the same `sha256:` form a `Secret` has in the
-public view.
+`check_facter` checks `facts/collector.py` statically with `ast`, without
+importing it: standard library imports and `from suil.sdk import Facter`
+only, exactly one `Facter` subclass, and `collect()` with the protocol's
+signature. `collect_facts` uploads `suil/sdk/facter.py`, the collector and the
+public config, then runs the bootstrap with sudo. The bootstrap stands in for
+`suil.sdk`, builds the one `Facter` with the config and prints the JSON of
+`collect()`. `collect_facts` adds the digests of `files()` under `files`.
 
 ## Protocols
 
-The structure of the SDK, as the loader checks it:
+Every method of an interface is a `typing.Protocol`, and `load_class` compares
+signatures against them:
 
 ```python
 @runtime_checkable
@@ -130,51 +105,126 @@ class Checks(Protocol):
 
 @runtime_checkable
 class DeclaresFiles(Protocol):
-    def files(self) -> list[File]: ...
+    def files(self) -> dict[str, str | bytes | None]: ...
 
 @runtime_checkable
 class Collects(Protocol):
     def collect(self) -> dict: ...
 ```
 
-- `Config` has no protocol: its contract is the pydantic model itself.
-- `Module` is `Deploys` and `Expects`; `Checks` and `DeclaresFiles` are
-  optional and have empty defaults in the base class.
-- `Facter` is `Collects`.
+`Config` has no protocol: its contract is the pydantic model. `Module` is
+`Deploys` and `Expects`, with `Checks` and `DeclaresFiles` optional. `Facter`
+is `Collects`, checked from the source because it is never imported on the
+control machine.
 
-`isinstance` against a runtime protocol sees only that a method exists, so the
-loader also compares each method's signature with the protocol's and reports
-the module, the file and the expected signature on a mismatch.
+## Secrets
 
-## Meta modules
+`Encrypted` is an `!ENC[...]` value as the data loader reads it: its string is
+the ciphertext, and `reveal()` decrypts it with `SUIL_AGE_KEY`. `get_config`
+reveals every `Encrypted` of the node into a `Secret`, a `str` that holds the
+plaintext, and hands that to the model.
 
-A meta module has no code and implements no interface. It exists only to pull
-other modules in through `requires.yaml`, as `base` does.
+A secret field is typed `Secret`. A field of its own turns any string into a
+`Secret`, and in a union such as `dict[str, Secret | str]` a value stays a
+`Secret` only when it arrived as one. The public view is the dump with
+`context={'public': True}`, which writes every `Secret` as
+`sha256:<hex of the plaintext>`; `get_public` and `strip_secrets` build it.
+Under `strict=True` a `Secret` field takes only a `Secret` instance.
+
+A plain `str` field would turn a `Secret` back into a plain string and leak
+it into the public view. `get_config` refuses that: when a revealed plaintext
+survives in the public view, it raises `ModuleConfigError` with the dotted
+path of the field.
+
+## Libs and errors
+
+`suil.sdk.libs` holds one function per file, one directory per kind:
+`config`, `host`, `inventory`, `merge`, `module`, `node`, `pyinfra`, `role`,
+`run`, `string` and `yaml`. A name does not repeat its location:
+`libs.module.diff_configs`, not `module_diff_configs`. The kinds are exported
+as modules, because `collect` exists in both `node` and `role`.
+
+`suil.sdk.errors` holds `Error`, which logs itself when it is constructed,
+and `DataError`, `ModuleError`, `ModuleConfigError`, `ModuleOrderError`,
+`ModuleValidateError`, `SecretError`, `NodeProbeError` and `DeploymentError`.
+Raise one and never log it as well.
+
+## Examples
+
+A module's config with a secret field:
+
+```python
+from suil.sdk import Config, Secret
+
+
+class Config(Config):
+    password: Secret
+    env:      dict[str, Secret | str] = {}
+```
+
+A module that gates its one file on the facts:
+
+```python
+from io import StringIO
+
+from pyinfra.operations import files
+
+from suil.sdk import Module
+
+PATH = '/etc/demo.conf'
+
+
+class Demo(Module):
+
+    def deploy(self, facts: dict, force: bool) -> None:
+        content = self.files()[PATH]
+
+        if self.file_needs_write(facts, PATH, content, force):
+            files.put(name=f'write {PATH}', src=StringIO(content), dest=PATH)
+
+    def expected(self) -> dict:
+        return {'files': {PATH: self.file_digest(self.files()[PATH])}}
+
+    def files(self) -> dict[str, str | bytes | None]:
+        return {PATH: f'node {self.config.suil.node}\n'}
+```
+
+A collector:
+
+```python
+from suil.sdk import Facter
+
+
+class Demo(Facter):
+
+    def collect(self) -> dict:
+        return {'hostname': self.read('/etc/hostname')}
+```
 
 ## Migration
 
-Every module under `modules/` moves to the three interfaces in one step per
-module: the free functions of `code/main.py` become methods of its `Module`,
-`facts/collector.py` becomes a `Facter`, secret fields become `Secret`, and
-`managed_files()` with its `files.put` operations becomes `files()` returning
-`File` resources.
-`suil/module.py` is deleted. Behaviour on hosts does not change: the same
-config queues the same operations.
+The SDK is built and tested beside `suil/libs/`, `suil/models.py` and the
+modules, which are not edited until the runner moves. Then:
 
-A guard test beside `suil/tests/test_modules_read_facts.py` fails when module
-code or module tests import any `suil.*` name other than `suil.sdk` and
-`suil.testing`.
+- the runner calls `get_config`, `load_class`, `check_facter`, `get_public`
+  and the `run_*` libs of `suil.sdk`, and `errors_handler` treats
+  `suil.sdk.errors.Error` as its own;
+- every module moves in one commit: free functions become methods of its
+  `Module`, the collector becomes a `Facter`, secret fields become `Secret`;
+- `suil/libs/`, `suil/models.py`, `suil/module.py` and their tests are
+  deleted.
+
+Behaviour on hosts does not change: the same config queues the same
+operations.
 
 ## Acceptance
 
-- Every module implements `Config`, `Module` and `Facter`, and imports suil
-  only through `suil.sdk` and `suil.testing`.
-- A module whose class misses a protocol, or has a method with the wrong
-  signature, is refused at load with the module, the file and the expected
-  signature.
-- Rendering through `render()` is byte-for-byte what the module rendered
-  before, proven by golden tests.
+- Every module implements its interfaces and imports suil only through
+  `suil.sdk` and `suil.testing`.
+- A module whose class misses a mandatory method, or has a method with the
+  wrong signature, is refused at load with the module, the file and the
+  expected signature.
+- A collector that imports more than the standard library and `Facter` is
+  refused before it is uploaded.
 - The public view of every node is identical to the one built by value
-  today.
-- A `File` changed on the node is written back, one whose `validate` fails is
-  not, and one declared `absent` is removed, proven in tests without a node.
+  before, and an `!ENC` value in a field not typed `Secret` fails the config.
