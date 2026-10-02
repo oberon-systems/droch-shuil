@@ -8,6 +8,7 @@ import yaml
 
 from suil.errors import ModuleError
 
+from ...protocols import DeclaresFiles
 from ..host.put_content import put_content
 from ..host.run_command import run_command
 from .collect_files import collect_files
@@ -15,16 +16,17 @@ from .get_files import get_files
 from .get_signature import get_signature
 
 
-def collect_facts(host, module: str, config, model, modules_dir: Path, facts_dir: Path) -> dict:
+def collect_facts(host, module: str, config, instance: DeclaresFiles | None, modules_dir: Path,
+                  facts_dir: Path) -> dict:
     """Run the module's collector on the target and record what it reports,
     together with the digest of every file the module puts there.
 
     `config` is the public view built by get_public - secrets are
-    already digests, and it is all the collector ever sees. `model` renders the
-    files and never leaves the control machine.
+    already digests, and it is all the collector ever sees. `instance` renders
+    the files and never leaves the control machine.
     """
     collector = Path(modules_dir) / module / 'facts' / 'collector.py'
-    files = get_files(module, model, modules_dir)
+    files = get_files(instance)
 
     if not collector.is_file() and not files:
         return {}

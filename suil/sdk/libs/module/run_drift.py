@@ -1,15 +1,10 @@
-from pathlib import Path
-
+from ...protocols import Expects
 from .diff_configs import diff_configs
-from .load_code import load_code
 
 
-def run_drift(module: str, config, facts: dict, modules_dir: Path) -> list[str]:
+def run_drift(module: Expects | None, facts: dict) -> list[str]:
     """Every path where the facts still differ from what the module expects."""
-    code = load_code(module, modules_dir)
-    hook = getattr(code, 'expected', None) if code else None
-
-    if not hook:
+    if module is None:
         return []
 
-    return ['.'.join(map(str, path)) for path in diff_configs(hook(config), facts)]
+    return ['.'.join(map(str, path)) for path in diff_configs(module.expected(), facts)]

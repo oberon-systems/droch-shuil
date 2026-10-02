@@ -1,11 +1,6 @@
-from pathlib import Path
-
-from .load_code import load_code
+from ...protocols import Checks
 
 
-def run_check(module: str, config, facts: dict, modules_dir: Path) -> list[str]:
+def run_check(module: Checks | None, facts: dict) -> list[str]:
     """What the module finds broken on the host, judged from the facts alone."""
-    code = load_code(module, modules_dir)
-    hook = getattr(code, 'check', None) if code else None
-
-    return list(hook(config, facts)) if hook else []
+    return list(module.check(facts)) if module else []
