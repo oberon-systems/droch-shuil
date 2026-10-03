@@ -3,7 +3,8 @@
 Modules get one supported import surface, `suil.sdk`: the models, three
 interfaces with their protocols, the libs and the errors. A module is built on
 them, and everything outside `suil.sdk` is private to suil. That is what makes
-the later split into separate repositories possible.
+the later split into separate repositories possible. The runner and the
+modules move onto it in [04-migrate-sdk.md](04-migrate-sdk.md).
 
 - [Layout](#layout)
 - [Interfaces](#interfaces)
@@ -11,7 +12,6 @@ the later split into separate repositories possible.
 - [Secrets](#secrets)
 - [Libs and errors](#libs-and-errors)
 - [Examples](#examples)
-- [Migration](#migration)
 - [Acceptance](#acceptance)
 
 ## Layout
@@ -201,35 +201,12 @@ class Demo(Facter):
         return {'hostname': self.read('/etc/hostname')}
 ```
 
-## Migration
-
-The SDK is built and tested beside `suil/libs/`, `suil/models.py` and the
-modules, which are not edited until the runner moves. Then:
-
-- the runner calls `get_config`, `load_class`, `check_facter`, `get_public`
-  and the `run_*` libs of `suil.sdk`, and `errors_handler` treats
-  `suil.sdk.errors.Error` as its own;
-- every module moves in one commit: free functions become methods of its
-  `Module`, the collector becomes a `Facter`, secret fields become `Secret`,
-  and its tests take `get_order` and `get_requires` from `suil.testing`;
-- `suil/libs/`, `suil/models.py` and their tests are deleted.
-
-`suil/tests/test_modules_import_sdk.py` holds the line meanwhile. It fails on
-a `suil.*` import from `modules/` other than `suil.sdk` and `suil.testing`.
-Its `PENDING` set names the modules not moved yet, and a module leaves that
-set in the commit that moves it.
-
-Behaviour on hosts does not change: the same config queues the same
-operations.
-
 ## Acceptance
 
-- Every module implements its interfaces and imports suil only through
-  `suil.sdk` and `suil.testing`.
 - A module whose class misses a mandatory method, or has a method with the
   wrong signature, is refused at load with the module, the file and the
   expected signature.
 - A collector that imports more than the standard library and `Facter` is
   refused before it is uploaded.
-- The public view of every node is identical to the one built by value
-  before, and an `!ENC` value in a field not typed `Secret` fails the config.
+- The public view carries the same digests as the one built by value, and
+  an `!ENC` value in a field not typed `Secret` fails the config.

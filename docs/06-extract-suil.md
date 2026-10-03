@@ -19,8 +19,9 @@ now, its modules as a `repo: local` entry of `modules.yaml`.
 
 - [02-workspace.md](02-workspace.md): suil finds the workspace from the
   current directory or `--workspace`, never from the location of its source.
-- [03-sdk.md](03-sdk.md): modules import only `suil.sdk` and `suil.testing`.
-- [04-manifest.md](04-manifest.md): modules are declared in `modules.yaml`.
+- [04-migrate-sdk.md](04-migrate-sdk.md): the runner and the modules import
+  only `suil.sdk` and `suil.testing`.
+- [05-manifest.md](05-manifest.md): modules are declared in `modules.yaml`.
 
 Without these the extracted package would still reach into the workspace
 tree.
