@@ -7,7 +7,7 @@ ALLOWED = ('suil.sdk', 'suil.testing')
 
 # Not on the SDK yet: a module leaves this set in the commit that migrates it.
 PENDING = {'accounts', 'amneziawg', 'awg-keeper', 'base', 'docker', 'nftables', 'nginx',
-           'packages', 'repos', 'selinux', 'ssh', 'unbound', 'xray'}
+           'packages', 'repos', 'ssh', 'unbound', 'xray'}
 
 
 def foreign_imports(modules_dir) -> dict[str, list[str]]:
