@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from suil.config import Config
 from suil.log import log_setup
+from suil.sdk.errors import Error
 
 log = logging.getLogger(__name__)
 
@@ -37,8 +38,8 @@ def errors_handler(function):
 
 
 def _report(kind, error, traceback) -> None:
-    # A SuilError has logged itself already.
-    if not isinstance(error, SuilError):
+    # A SuilError or an sdk Error has logged itself already.
+    if not isinstance(error, (SuilError, Error)):
         log.error(f'{kind.__name__}: {error}',
                   exc_info=None if isinstance(error, KNOWN) else (kind, error, traceback))
 

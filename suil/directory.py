@@ -3,9 +3,12 @@ import logging
 
 from pathlib import Path
 
-from suil.errors import DataError, DirectoryError
-from suil.libs import (config_expand_lookups, deep_merge, deep_merge_unwrap, module_get_defaults,
-                       module_get_facts, module_get_order, yaml_load_data)
+from suil.errors import DirectoryError
+from suil.sdk.errors import DataError
+from suil.sdk.libs.config import expand_lookups
+from suil.sdk.libs.merge import deep, deep_unwrap
+from suil.sdk.libs.module import get_defaults, get_facts, get_order
+from suil.sdk.libs.yaml import load_data
 
 log = logging.getLogger(__name__)
 
@@ -41,7 +44,7 @@ class Directory:
         if role and node:
             raise DirectoryError('give a role or a node, not both')
 
-        common = yaml_load_data(workspace.data_dir / 'common.yaml') or {}
+        common = load_data(workspace.data_dir / 'common.yaml') or {}
 
         object.__setattr__(self, '_workspace', workspace)
         object.__setattr__(self, '_common', common)
@@ -56,7 +59,7 @@ class Directory:
         merged = {}
 
         for name in names:
-            probe = module_get_facts(name, 'suil', workspace.facts_dir).get('facts') or {}
+            probe = get_facts(name, 'suil', workspace.facts_dir).get('facts') or {}
             merged[name] = self._merge(name, probe.get('family'), probe.get('release'))
 
         object.__setattr__(self, '_merged', merged)
@@ -83,7 +86,7 @@ class Directory:
     def inventory(self) -> dict[str, str | None]:
         paths = sorted(self._workspace.data_dir.glob(self._pattern('node').format(node='*')))
 
-        return {path.stem: (yaml_load_data(path) or {}).get('role') for path in paths}
+        return {path.stem: (load_data(path) or {}).get('role') for path in paths}
 
     def probe(self, name: str, family: str, release: int) -> NodeStorage:
         """The one change a Directory takes: the OS layer, which only the target knows."""
@@ -143,16 +146,16 @@ class Directory:
 
     def _lookup(self, *names: str) -> None:
         for name in names:
-            self._nodes[name] = NodeStorage(name=name, **config_expand_lookups(self._merged[name], self._merged, name))
+            self._nodes[name] = NodeStorage(name=name, **expand_lookups(self._merged[name], self._merged, name))
 
     def _merge(self, name: str, family: str | None, release: int | None) -> dict:
         modules_dir = self._workspace.modules_dir
-        node = yaml_load_data(self.resolve(self._pattern('node'), required=True, node=name)) or {}
+        node = load_data(self.resolve(self._pattern('node'), required=True, node=name)) or {}
         role = node.get('role')
-        role_data = yaml_load_data(self.resolve(self._pattern('role'), required=True, role=role)) or {} if role else {}
+        role_data = load_data(self.resolve(self._pattern('role'), required=True, role=role)) or {} if role else {}
 
         declared = (role_data.get('modules') or []) + (node.get('modules') or [])
-        modules = module_get_order(declared, modules_dir) if family else self._dedupe(declared)
+        modules = get_order(declared, modules_dir) if family else self._dedupe(declared)
 
         layer_vars = {
             'family': family,
@@ -164,14 +167,14 @@ class Directory:
         data = {'deployment': self._common.get('deployment', {})}
 
         for module in modules:
-            data = deep_merge(data, module_get_defaults(module, modules_dir))
+            data = deep(data, get_defaults(module, modules_dir))
 
         for layer in self._hierarchy:
             # a per-module layer is one file per module, the rest carry them all
             for module in (modules if '{module}' in layer else ['']):
-                data = deep_merge(data, self._layer_data(layer, module=module, **layer_vars))
+                data = deep(data, self._layer_data(layer, module=module, **layer_vars))
 
-        data = deep_merge_unwrap(data)
+        data = deep_unwrap(data)
         data.update(modules=modules, role=role, family=family, release=release, facts=family is not None)
 
         return data
@@ -183,7 +186,7 @@ class Directory:
 
         path = self.resolve(layer, **layer_vars)
 
-        return (yaml_load_data(path) or {}) if path else {}
+        return (load_data(path) or {}) if path else {}
 
     @staticmethod
     def _dedupe(modules: list[str]) -> list[str]:

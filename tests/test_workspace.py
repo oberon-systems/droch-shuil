@@ -5,7 +5,8 @@ import sys
 import pytest
 
 from suil.directory import Directory
-from suil.errors import DataError, DirectoryError
+from suil.errors import DirectoryError
+from suil.sdk.errors import DataError
 from suil.workspace import Workspace
 
 COMMON = 'hierarchy:\n  - roles/{role}.yaml\n  - nodes/{node}.yaml\n'

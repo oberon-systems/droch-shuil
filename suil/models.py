@@ -1,34 +1,11 @@
 """Types shared by the runner and by every module's config.py."""
 
-import hashlib
-
 from pydantic import BaseModel, ConfigDict
 
 from suil.errors import DataError
+from suil.sdk.models import Encrypted as Secret
 
-
-class Secret(str):
-    """A value that arrived through an !ENC marker.
-
-    The str value is the ciphertext, so a stray dump writes the ciphertext back
-    rather than the plaintext; reveal() decrypts on demand.
-    """
-
-    __slots__ = ('_plain',)
-
-    def reveal(self, key: str | None = None) -> str:
-        plain = getattr(self, '_plain', None)
-
-        if plain is None:
-            from suil.libs.string_decrypt import string_decrypt
-
-            plain = string_decrypt(str(self), key)
-            object.__setattr__(self, '_plain', plain)
-
-        return plain
-
-    def digest(self) -> str:
-        return 'sha256:' + hashlib.sha256(self.reveal().encode()).hexdigest()
+__all__ = ['Secret', 'Tagged', 'Lookup', 'SuilContext', 'SuilConfig']
 
 
 class Tagged:

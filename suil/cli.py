@@ -7,8 +7,9 @@ from suil.config import Config
 from suil.deployment import Deployment
 from suil.directory import Directory
 from suil.errors import errors_handler
-from suil.libs import module_get_names, module_get_order, module_get_requires, string_decrypt, string_encrypt
 from suil.log import log_setup
+from suil.sdk.libs.module import get_names, get_order, get_requires
+from suil.sdk.libs.string import decrypt, encrypt
 from suil.tui import tui
 from suil.workspace import Workspace
 
@@ -102,14 +103,14 @@ def modules(obj):
     """List the modules and the requires graph."""
     workspace, _ = obj
 
-    for name in module_get_names(workspace.modules_dir):
-        requires = module_get_requires(name, workspace.modules_dir)
+    for name in get_names(workspace.modules_dir):
+        requires = get_requires(name, workspace.modules_dir)
         kind = 'meta' if not (workspace.modules_dir / name / 'code' / 'main.py').is_file() else 'module'
         log.info(f'{name}  [{kind}]')
 
         if requires:
             log.info('  requires: ' + ', '.join(requires))
-            log.info('  order:    ' + ' -> '.join(module_get_order([name], workspace.modules_dir)))
+            log.info('  order:    ' + ' -> '.join(get_order([name], workspace.modules_dir)))
 
 
 @main.command('encrypt')
@@ -118,7 +119,7 @@ def modules(obj):
 def encrypt_command(obj, value):
     """Encrypt a string to SUIL_AGE_RECIPIENT."""
     _, settings = obj
-    print(f'!ENC[{string_encrypt(value, settings.age_recipient)}]')
+    print(f'!ENC[{encrypt(value, settings.age_recipient)}]')
 
 
 @main.command('decrypt')
@@ -127,7 +128,7 @@ def encrypt_command(obj, value):
 def decrypt_command(obj, value):
     """Decrypt a string with SUIL_AGE_KEY."""
     _, settings = obj
-    print(string_decrypt(value, settings.age_key))
+    print(decrypt(value, settings.age_key))
 
 
 @errors_handler

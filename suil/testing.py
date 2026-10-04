@@ -7,8 +7,7 @@ them is the module author's business.
 
 import pytest
 
-from suil.libs import module_load_code
-from suil.sdk.libs.module import get_order, get_requires
+from suil.sdk.libs.module import get_order, get_requires, load_code
 from suil.workspace import Workspace
 
 __all__ = ['get_order', 'get_requires']
@@ -33,6 +32,6 @@ def suil_context():
 @pytest.fixture(scope='session')
 def load(modules_dir):
     def loader(module, part='main'):
-        return module_load_code(module, modules_dir, part=part)
+        return load_code(module, modules_dir, part=part)
 
     return loader
