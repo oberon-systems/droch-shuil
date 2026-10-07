@@ -11,7 +11,7 @@ now, its modules as a `repo: local` entry of `modules.yaml`.
 - `suil/pyproject.toml` declares no dependencies: pyinfra, pydantic, PyYAML,
   pyrage, Click and the rest come from the workspace's `requirements.txt`.
 - The package directory is the project directory (`package-dir` is `.`), and
-  the packages are listed by hand: `suil` and `suil.libs`.
+  the packages are listed by hand: `suil`, `suil.sdk` and its sub-packages.
 - `make test` runs suil's own tests and every module's tests in one pytest
   call.
 
@@ -31,7 +31,7 @@ tree.
 The new repository gets `suil/` with its history, filtered out of the
 inventory repository with `git filter-repo --subdirectory-filter suil`. The
 package moves to the usual layout, a `suil/` package directory under the
-repository root, so setuptools finds `suil`, `suil.libs` and `suil.sdk`
+repository root, so setuptools finds `suil` and `suil.sdk`
 without a hand-written list.
 
 What moves: the runner, `suil.sdk`, `suil.testing`, `suil/tests/` and

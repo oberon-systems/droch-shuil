@@ -24,7 +24,7 @@ in one of two ways. Both end in the same function, `deployment()` in
 2. **TUI** - `suil` with no command. It offers a checkbox list of the roles
    under `data/roles/` and runs `deployment()` for the chosen ones.
 
-A `SuilError` raised anywhere ends the process with one colored line,
+An sdk `Error` raised anywhere ends the process with one colored line,
 `suil: <message>`.
 
 ## Run cycle
@@ -70,7 +70,7 @@ provisional.
 
 ### Module order
 
-Once the family is known, `module_get_order()` walks the `requires.yaml`
+Once the family is known, `get_order()` walks the `requires.yaml`
 graph depth-first and puts every dependency before its dependant. The order
 inside a `requires` list is the run order, and a cycle is an error. Without
 a family the list is only deduplicated.
@@ -97,47 +97,47 @@ are expanded last, see [Lookups](#lookups).
 
 ### Module configs
 
-Every top-level key of the merged data is a module name. `module_get_config()`
+Every top-level key of the merged data is a module name. `get_config()`
 takes that slice, adds `suil` (node, role, family, release, ssh_user),
 decrypts the secrets in it, and validates it with the module's
 `code/config.py` `Config`. A meta module, with no code, keeps the plain dict.
-`module_get_public()` then builds the public view of the same config, with
+`get_public()` then builds the public view of the same config, with
 every secret replaced by its digest.
 
 ## Applying the catalogue
 
 ### Connect
 
-`pyinfra_make_inventory()` turns each node's `deployment` settings into a
+`make_inventory()` turns each node's `deployment` settings into a
 pyinfra host, with `ssh_host` or the node name as the address. After the
 connect every node is probed and the catalogue is rebuilt with the OS layer.
 
 ### Facts before the run
 
 Before collecting, the signature each module recorded last time is read. Then
-`module_collect_facts()` runs for every node and module: it uploads
-`facts/collector.py` and the public config, runs `python3 collector.py
-<config.json>`, and parses the JSON it prints. It adds `files`, the sha256
-of every path the module's `managed_files()` names. The record goes to
+`collect_facts()` runs for every node and module: it uploads
+`facts/collector.py`, the `Facter` bootstrap and the public config, runs the
+bootstrap, and parses the JSON it prints. It adds `files`, the sha256
+of every path the module's `files()` names. The record goes to
 `facts/<node>/<module>.yaml` with a timestamp and the module's current
 signature. A collector that fails is reported and the run goes on.
 
 ### Run directory
 
-`run_build_directory()` writes `.runs/<timestamp>/<node>/node.yaml` and one
+`build_directory()` writes `.runs/<timestamp>/<node>/node.yaml` and one
 `<module>.yaml` per module, all public, and points `.runs/latest` at it.
 
 ### Queue
 
 For every node and module, `force` is true under `--force` or when the
-recorded signature differs from the current one. `module_run_code()` hands
-`deploy(config, facts, force)` to pyinfra. The module compares `expected()`
+recorded signature differs from the current one. `run_code()` hands the
+module's `deploy(facts, force)` to pyinfra. The module compares `expected()`
 with the facts itself and queues only what differs. A module that queued
 nothing is skipped in the rest of the run.
 
 ### Apply and check
 
-`pyinfra_run_state()` executes the queue; `--dry-run` shows it and stops.
+`run_state()` executes the queue; `--dry-run` shows it and stops.
 Facts are collected again for the modules that changed. `deployment_check()`
 then reads every module's facts: problems from `check()` and paths where
 `expected()` still differs are collected, and any of them fail the run with
@@ -159,8 +159,8 @@ takes these keys:
 An unknown key or a bad value is a `DataError` when the file is loaded.
 
 The marker passes through the merge untouched. When a node is resolved,
-`config_expand_lookups()` replaces each marker with the list
-`inventory_lookup()` returns. Inside a list the found values are spliced in
+`expand_lookups()` replaces each marker with the list
+`lookup()` returns. Inside a list the found values are spliced in
 place, next to literal items; anywhere else the marker becomes the list.
 
 A lookup reads the other nodes' *views*: their data merged from their own
@@ -185,7 +185,7 @@ writes the ciphertext back.
 
 ### Using
 
-`module_get_config()` reveals every secret in the module's slice before
+`get_config()` reveals every secret in the module's slice before
 validation, so the module's `Config` holds plaintext. `Secret.reveal()`
 decrypts with the private key in `SUIL_AGE_KEY` and keeps the result in
 memory. The plaintext never leaves the control machine except inside the
@@ -197,10 +197,9 @@ Everything that is printed, written or sent to a collector is the public
 view. `Secret.digest()` is `sha256:` over the plaintext: enough to see that a
 secret changed, not enough to recover it.
 
-- `module_get_public()` finds the node's secrets in the raw data and replaces
-  their plaintext in the dumped config with the digests. It works by value,
-  because pydantic has already turned each `Secret` into a plain `str`.
-- `config_strip_secrets()` replaces any `Secret` that is still left before
+- `get_public()` dumps the config with every `Secret` field as its digest.
+  It works by field type, so a secret typed anything else is an error.
+- `strip_secrets()` replaces any `Secret` that is still left before
   `.runs/` is written.
 
 So the collector on the node, `suil config`, and `.runs/` see digests only.

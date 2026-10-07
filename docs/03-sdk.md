@@ -141,7 +141,7 @@ path of the field.
 `suil.sdk.libs` holds one function per file, one directory per kind:
 `config`, `host`, `inventory`, `merge`, `module`, `node`, `pyinfra`, `role`,
 `run`, `string` and `yaml`. A name does not repeat its location:
-`libs.module.diff_configs`, not `module_diff_configs`. The kinds are exported
+`libs.module.diff_configs`, with no `module_` prefix. The kinds are exported
 as modules, because `collect` exists in both `node` and `role`.
 
 `suil.sdk.errors` holds `Error`, which logs itself when it is constructed,

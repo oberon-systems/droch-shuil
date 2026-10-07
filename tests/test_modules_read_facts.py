@@ -2,9 +2,9 @@ import re
 
 from pathlib import Path
 
-HOST_READS = re.compile(r'\b(get_fact|host_run_command)\b')
-RUNNER_DIFF = re.compile(r'\bdiff\b|module_diff_configs')
-RUNNER = ('deployment.py', 'libs/module_run_code.py')
+HOST_READS = re.compile(r'\b(get_fact|host_run_command|run_command)\b')
+RUNNER_DIFF = re.compile(r'\bdiff\b|diff_configs')
+RUNNER = ('deployment.py', 'sdk/libs/module/run_code.py')
 
 
 def test_no_module_reads_the_host_outside_its_collector(modules_dir):

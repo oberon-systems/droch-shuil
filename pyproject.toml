@@ -17,11 +17,10 @@ suil = "suil.cli:cli"
 [project.entry-points.pytest11]
 suil = "suil.testing"
 
-# The package dir is the project dir: DESIGN.md names suil/libs/, not suil/suil/libs/.
+# The package dir is the project dir: the docs name suil/sdk/, not suil/suil/sdk/.
 [tool.setuptools]
 packages = [
     "suil",
-    "suil.libs",
     "suil.sdk",
     "suil.sdk.models",
     "suil.sdk.libs",

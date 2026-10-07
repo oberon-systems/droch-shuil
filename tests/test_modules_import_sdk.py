@@ -5,9 +5,6 @@ from pathlib import Path
 SUIL_IMPORT = re.compile(r'^\s*(?:from|import)\s+(suil(?:\.\w+)*)', re.MULTILINE)
 ALLOWED = ('suil.sdk', 'suil.testing')
 
-# Not on the SDK yet: a module leaves this set in the commit that migrates it.
-PENDING = set()
-
 
 def foreign_imports(modules_dir) -> dict[str, list[str]]:
     found: dict[str, list[str]] = {}
@@ -24,8 +21,4 @@ def foreign_imports(modules_dir) -> dict[str, list[str]]:
 def test_a_module_imports_suil_only_through_the_sdk_and_testing(modules_dir):
     found = foreign_imports(modules_dir)
 
-    assert [line for module in sorted(set(found) - PENDING) for line in found[module]] == []
-
-
-def test_a_migrated_module_leaves_pending(modules_dir):
-    assert sorted(PENDING - set(foreign_imports(modules_dir))) == []
+    assert [line for module in sorted(found) for line in found[module]] == []
