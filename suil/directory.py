@@ -4,8 +4,9 @@ import logging
 from pathlib import Path
 
 from suil.errors import DirectoryError
-from suil.sdk.errors import DataError
+from suil.sdk.errors import DataError, ModuleError
 from suil.sdk.libs.config import expand_lookups
+from suil.sdk.libs.manifest import check_manifest
 from suil.sdk.libs.merge import deep, deep_unwrap
 from suil.sdk.libs.module import get_defaults, get_facts, get_order
 from suil.sdk.libs.yaml import load_data
@@ -56,6 +57,9 @@ class Directory:
             self.resolve(self._pattern('role'), required=True, role=role)
             names = tuple(name for name, found in self.inventory.items() if found == role)
 
+        roots = check_manifest(workspace.manifest, workspace.modules_dir, workspace.cache_dir) if names else {}
+        object.__setattr__(self, '_roots', roots)
+
         merged = {}
 
         for name in names:
@@ -73,6 +77,10 @@ class Directory:
     @property
     def workspace(self):
         return self._workspace
+
+    @property
+    def roots(self):
+        return dict(self._roots)
 
     @property
     def nodes(self) -> tuple[NodeStorage, ...]:
@@ -149,13 +157,15 @@ class Directory:
             self._nodes[name] = NodeStorage(name=name, **expand_lookups(self._merged[name], self._merged, name))
 
     def _merge(self, name: str, family: str | None, release: int | None) -> dict:
-        modules_dir = self._workspace.modules_dir
         node = load_data(self.resolve(self._pattern('node'), required=True, node=name)) or {}
         role = node.get('role')
         role_data = load_data(self.resolve(self._pattern('role'), required=True, role=role)) or {} if role else {}
 
         declared = (role_data.get('modules') or []) + (node.get('modules') or [])
-        modules = get_order(declared, modules_dir) if family else self._dedupe(declared)
+        modules = get_order(declared, self._roots) if family else self._dedupe(declared)
+
+        if undeclared := [module for module in modules if module not in self._roots]:
+            raise ModuleError(f"{name}: {', '.join(undeclared)} not declared in modules.yaml")
 
         layer_vars = {
             'family': family,
@@ -167,7 +177,7 @@ class Directory:
         data = {'deployment': self._common.get('deployment', {})}
 
         for module in modules:
-            data = deep(data, get_defaults(module, modules_dir))
+            data = deep(data, get_defaults(self._roots[module]))
 
         for layer in self._hierarchy:
             # a per-module layer is one file per module, the rest carry them all

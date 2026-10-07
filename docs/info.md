@@ -7,7 +7,7 @@ and how a run applies that configuration node by node.
 ## Data layer
 
 A workspace is the directory suil is started in. Suil reads and writes only
-four directories under it:
+four directories and one file under it:
 
 ```text
 <workspace>/
@@ -18,6 +18,7 @@ four directories under it:
     roles/            one file per role
     nodes/            one file per node, named by its FQDN
   modules/            module code and module defaults, read only
+  modules.yaml        the modules of the workspace and where they come from
   facts/              what suil last read on each node, written by suil
   .runs/              the resolved configuration of each run, written by suil
 ```
@@ -199,6 +200,10 @@ suil
 - `facts` connects, probes and collects facts, and changes nothing.
 - `nodes` lists the nodes of the workspace and their roles. `modules` lists
   the modules, their `requires` and their run order.
+- `validate` checks `modules.yaml` and every module it declares and connects
+  to nothing; `config`, `facts` and `apply` run it first. `install` clones
+  the Git repositories into the suil cache, and `autoupdate` moves each
+  `version` to the newest tag.
 - `suil` with no command opens the interactive mode. It asks for one role,
   shows the run and asks before it applies.
 

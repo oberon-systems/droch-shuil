@@ -7,7 +7,7 @@ import pytest
 from suil.sdk import facter
 from suil.sdk.errors import ModuleError
 from suil.sdk.libs.module import check_facter
-from suil.sdk.models import Secret
+from suil.sdk.models import Root, Secret
 
 HEAD = 'import os\n\nfrom suil.sdk import Facter\n\n\n'
 
@@ -23,12 +23,12 @@ def collector(tmp_path, name, source):
     facts.mkdir(parents=True)
     (facts / 'collector.py').write_text(source)
 
-    return tmp_path
+    return Root(name=name, path=tmp_path / name)
 
 
 def test_a_good_collector_and_a_module_without_one_pass(tmp_path):
-    check_facter('facter_demo', collector(tmp_path, 'facter_demo', DEMO))
-    check_facter('facter_absent', tmp_path)
+    check_facter(collector(tmp_path, 'facter_demo', DEMO))
+    check_facter(Root(name='facter_absent', path=tmp_path / 'facter_absent'))
 
 
 @pytest.mark.parametrize('source, error', [
@@ -41,7 +41,7 @@ def test_a_good_collector_and_a_module_without_one_pass(tmp_path):
 ])
 def test_a_collector_off_the_contract_is_refused(tmp_path, source, error):
     with pytest.raises(ModuleError, match=error):
-        check_facter('facter_bad', collector(tmp_path, 'facter_bad', source))
+        check_facter(collector(tmp_path, 'facter_bad', source))
 
 
 def test_the_bootstrap_prints_what_collect_returns(tmp_path):

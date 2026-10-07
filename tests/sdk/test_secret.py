@@ -9,7 +9,7 @@ from pydantic import BaseModel, ValidationError
 from suil.sdk.errors import ModuleConfigError
 from suil.sdk.libs.config import reveal_secrets, strip_secrets
 from suil.sdk.libs.module import get_config, get_public
-from suil.sdk.models import Encrypted, Secret
+from suil.sdk.models import Encrypted, Root, Secret
 
 DIGEST = 'sha256:' + hashlib.sha256(b'pw').hexdigest()
 
@@ -40,7 +40,7 @@ def module_dir(tmp_path, module: str, fields: str):
     (code / 'config.py').write_text('from suil.sdk.models import Config, Secret\n\n\n'
                                     f'class Config(Config):\n{fields}\n')
 
-    return tmp_path
+    return Root(name=module, path=tmp_path / module)
 
 
 def test_a_secret_field_turns_any_string_into_a_secret():
@@ -90,7 +90,7 @@ def test_reveal_secrets_hands_out_secrets():
 
 def test_get_config_hands_the_model_secrets_and_get_public_digests_them(tmp_path):
     modules = module_dir(tmp_path, 'vault', '    password: Secret\n    user: str')
-    config = get_config('vault', node('vault', {'password': encrypted('pw'), 'user': 'admin'}), modules, None)
+    config = get_config(modules, node('vault', {'password': encrypted('pw'), 'user': 'admin'}), None)
 
     assert type(config.password) is Secret and config.password == 'pw'
     assert get_public(config)['password'] == DIGEST
@@ -101,11 +101,11 @@ def test_get_config_refuses_an_encrypted_value_in_a_str_field(tmp_path):
     modules = module_dir(tmp_path, 'leaky', '    env: dict[str, str]')
 
     with pytest.raises(ModuleConfigError, match=r'leaky\.env\.token holds an !ENC value'):
-        get_config('leaky', node('leaky', {'env': {'token': encrypted('pw')}}), modules, None)
+        get_config(modules, node('leaky', {'env': {'token': encrypted('pw')}}), None)
 
 
 def test_a_meta_module_gets_its_dict_with_secrets(tmp_path):
-    config = get_config('meta', node('meta', {'token': encrypted('pw')}), tmp_path, None)
+    config = get_config(Root(name='meta', path=tmp_path / 'meta'), node('meta', {'token': encrypted('pw')}), None)
 
     assert type(config['token']) is Secret
     assert get_public(config)['token'] == DIGEST

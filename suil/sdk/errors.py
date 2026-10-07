@@ -15,6 +15,10 @@ class DataError(Error):
     """ A data file is missing, unreadable or not the shape a layer must have """
 
 
+class ManifestError(Error):
+    """ modules.yaml does not parse, or a repository or module it declares is not there """
+
+
 class ModuleError(Error):
     """ A module is missing, has no code, or its code cannot be imported """
 

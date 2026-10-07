@@ -1,19 +1,18 @@
-from pathlib import Path
-
 from suil.sdk.errors import ModuleConfigError
-from suil.sdk.models import Secret
+from suil.sdk.models import Root, Secret
 
 from ..config.strip_secrets import reveal_secrets, strip_secrets
 from .load_code import load_code
 
 
-def get_config(module: str, node, modules_dir: Path, age_key: str | None):
+def get_config(root: Root, node, age_key: str | None):
     """The module's slice of the node config, validated by its own pydantic model.
 
     Returns the model instance when the module ships code/config.py, and the
     plain dict when it does not - a meta module has nothing to validate.
     Every !ENC value reaches the model as a Secret, and has to stay one.
     """
+    module = root.name
     data = dict(getattr(node, module, None) or {})
     data['suil'] = {
         'node':     node.name,
@@ -24,7 +23,7 @@ def get_config(module: str, node, modules_dir: Path, age_key: str | None):
     }
 
     data = reveal_secrets(data, age_key)
-    code = load_code(module, modules_dir, part='config')
+    code = load_code(root, part='config')
 
     if code is None:
         return data

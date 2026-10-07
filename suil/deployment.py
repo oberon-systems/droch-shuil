@@ -19,6 +19,7 @@ class Deployment:
         self.settings = settings
         self.directory = directory
         self.workspace = directory.workspace
+        self.roots = directory.roots
         self.force = force
         self.dry_run = dry_run
         self.classes = {}
@@ -40,8 +41,8 @@ class Deployment:
         """The class of every module, its collector checked, so a broken one fails before a connect."""
         for module in modules:
             if module not in self.classes:
-                check_facter(module, self.workspace.modules_dir)
-                self.classes[module] = load_class(module, self.workspace.modules_dir)
+                check_facter(self.roots[module])
+                self.classes[module] = load_class(self.roots[module])
 
     def connect(self, node):
         """Connect first, because the OS layer of the hierarchy is the one whose
@@ -65,7 +66,7 @@ class Deployment:
         configs, public = {}, {}
 
         for module in node.modules:
-            config = get_config(module, node, self.workspace.modules_dir, self.settings.age_key)
+            config = get_config(self.roots[module], node, self.settings.age_key)
             configs[module] = self.classes[module](config) if self.classes[module] else None
             public[module] = get_public(config)
 
@@ -80,7 +81,7 @@ class Deployment:
         applied = []
 
         for module in node.modules:
-            changed = self.force or signatures[module] != get_signature(module, self.workspace.modules_dir)
+            changed = self.force or signatures[module] != get_signature(self.roots[module])
             facts = get_facts(node.name, module, self.workspace.facts_dir).get('facts') or {}
             queued = len(state.ops[host])
 
@@ -109,8 +110,7 @@ class Deployment:
                 continue
 
             try:
-                collect_facts(host, module, public[module], configs[module],
-                              self.workspace.modules_dir, self.workspace.facts_dir)
+                collect_facts(host, self.roots[module], public[module], configs[module], self.workspace.facts_dir)
             except Error:
                 log.warning(f'{node.name}: {module} facts not collected')
 

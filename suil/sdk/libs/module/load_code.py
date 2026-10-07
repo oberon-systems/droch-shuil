@@ -5,6 +5,7 @@ from pathlib import Path
 from types import ModuleType
 
 from suil.sdk.errors import ModuleError
+from suil.sdk.models import Root
 
 # Modules are imported under a synthetic parent rather than off sys.path, so a
 # module named `ssh` or `packages` cannot shadow an installed package.
@@ -22,17 +23,17 @@ def _ensure_package(name: str, path: Path | None = None) -> ModuleType:
     return package
 
 
-def load_code(module: str, modules_dir: Path, part: str = 'main') -> ModuleType | None:
-    """Import modules/<module>/code/<part>.py, or None when the module has no code."""
-    code_dir = Path(modules_dir) / module / 'code'
+def load_code(root: Root, part: str = 'main') -> ModuleType | None:
+    """Import <root>/code/<part>.py, or None when the module has no code."""
+    code_dir = root.path / 'code'
     source = code_dir / f'{part}.py'
 
     if not source.is_file():
         return None
 
-    _ensure_package(NAMESPACE, Path(modules_dir))
-    _ensure_package(f'{NAMESPACE}.{module}', Path(modules_dir) / module)
-    package = f'{NAMESPACE}.{module}.code'
+    _ensure_package(NAMESPACE)
+    _ensure_package(f'{NAMESPACE}.{root.name}', root.path)
+    package = f'{NAMESPACE}.{root.name}.code'
     _ensure_package(package, code_dir)
 
     name = f'{package}.{part}'

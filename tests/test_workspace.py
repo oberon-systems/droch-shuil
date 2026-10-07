@@ -16,8 +16,9 @@ def tree(root, node, value):
     for path, text in {
         'data/common.yaml':                COMMON,
         'data/roles/web.yaml':             'modules:\n  - demo\n',
-        f'data/nodes/{node}.yaml':         'role: web\n',
-        'modules/demo/data/defaults.yaml': f'demo:\n  value: {value}\n',
+        f'data/nodes/{node}.yaml':         f'role: web\ndemo:\n  value: {value}\n',
+        'modules/demo/requires.yaml':      'requires: []\n',
+        'modules.yaml':                    'repos:\n  - repo: local\n    modules: [demo]\n',
     }.items():
         (root / path).parent.mkdir(parents=True, exist_ok=True)
         (root / path).write_text(text)

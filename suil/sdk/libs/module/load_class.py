@@ -1,8 +1,7 @@
 import inspect
 
-from pathlib import Path
-
 from suil.sdk.errors import ModuleError
+from suil.sdk.models import Root
 
 from ...protocols import Checks, DeclaresFiles, Deploys, Expects
 from .load_code import load_code
@@ -11,17 +10,17 @@ PROTOCOLS = {'deploy': Deploys, 'expected': Expects, 'check': Checks, 'files': D
 MANDATORY = ('deploy', 'expected')
 
 
-def load_class(module: str, modules_dir: Path) -> type | None:
+def load_class(root: Root) -> type | None:
     """The one Module subclass of modules/<module>/code/main.py, None for a meta module."""
     # suil.sdk.module imports these libs, so Module cannot be imported at the top.
     from ...module import Module
 
-    code = load_code(module, modules_dir)
+    code = load_code(root)
 
     if code is None:
         return None
 
-    source = f'modules/{module}/code/main.py'
+    source = f'modules/{root.name}/code/main.py'
     found = [
         value for value in vars(code).values()
         if isinstance(value, type) and issubclass(value, Module) and value is not Module

@@ -7,6 +7,7 @@ from pathlib import Path
 import yaml
 
 from suil.sdk.errors import ModuleError
+from suil.sdk.models import Root
 
 from ... import facter
 from ...protocols import DeclaresFiles
@@ -17,8 +18,7 @@ from .get_files import get_files
 from .get_signature import get_signature
 
 
-def collect_facts(host, module: str, config, instance: DeclaresFiles | None, modules_dir: Path,
-                  facts_dir: Path) -> dict:
+def collect_facts(host, root: Root, config, instance: DeclaresFiles | None, facts_dir: Path) -> dict:
     """Run the module's collector on the target and record what it reports,
     together with the digest of every file the module puts there.
 
@@ -26,13 +26,13 @@ def collect_facts(host, module: str, config, instance: DeclaresFiles | None, mod
     already digests, and it is all the collector ever sees. `instance` renders
     the files and never leaves the control machine.
     """
-    collector = Path(modules_dir) / module / 'facts' / 'collector.py'
+    collector = root.path / 'facts' / 'collector.py'
     files = get_files(instance)
 
     if not collector.is_file() and not files:
         return {}
 
-    facts = _collector(host, module, config, collector) if collector.is_file() else {}
+    facts = _collector(host, root.name, config, collector) if collector.is_file() else {}
 
     if files:
         facts['files'] = collect_files(host, files)
@@ -40,12 +40,12 @@ def collect_facts(host, module: str, config, instance: DeclaresFiles | None, mod
     record = {
         'facts':     facts,
         'timestamp': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-        'signature': get_signature(module, modules_dir),
+        'signature': get_signature(root),
     }
 
     target = Path(facts_dir) / host.name
     target.mkdir(parents=True, exist_ok=True)
-    (target / f'{module}.yaml').write_text(
+    (target / f'{root.name}.yaml').write_text(
         yaml.safe_dump(record, default_flow_style=False, sort_keys=False))
 
     return record

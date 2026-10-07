@@ -2,25 +2,24 @@ import ast
 import inspect
 import sys
 
-from pathlib import Path
-
 from suil.sdk.errors import ModuleError
+from suil.sdk.models import Root
 
 from ...protocols import Collects
 
 
-def check_facter(module: str, modules_dir: Path) -> None:
+def check_facter(root: Root) -> None:
     """Check facts/collector.py without importing it: it runs on the node, not here.
 
     Standard library imports and `from suil.sdk import Facter` only, exactly one
     Facter subclass, and collect() as the Collects protocol has it.
     """
-    path = Path(modules_dir) / module / 'facts' / 'collector.py'
+    path = root.path / 'facts' / 'collector.py'
 
     if not path.is_file():
         return
 
-    source = f'modules/{module}/facts/collector.py'
+    source = f'modules/{root.name}/facts/collector.py'
 
     try:
         tree = ast.parse(path.read_text(), filename=str(path))
