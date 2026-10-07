@@ -6,7 +6,7 @@ SUIL_IMPORT = re.compile(r'^\s*(?:from|import)\s+(suil(?:\.\w+)*)', re.MULTILINE
 ALLOWED = ('suil.sdk', 'suil.testing')
 
 # Not on the SDK yet: a module leaves this set in the commit that migrates it.
-PENDING = {'base', 'docker'}
+PENDING = {'base'}
 
 
 def foreign_imports(modules_dir) -> dict[str, list[str]]:
