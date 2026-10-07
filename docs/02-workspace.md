@@ -22,30 +22,30 @@ explicit workspace, passed to every phase of a run.
 A `Workspace` is a frozen record of one tree: its root and the directories
 suil reads and writes in it.
 
-- `root` - the workspace directory.
-- `data_dir`, `modules_dir` - read only.
+- `base_dir` - the workspace directory.
+- `data_dir`, `modules_dir`, `manifest` (`modules.yaml`) - read only.
 - `facts_dir`, `runs_dir` - written by a run, gitignored.
-- `hierarchy_file` - `data/common.yaml`.
+- `cache_dir` - the suil user cache, where Git modules are installed.
 
-The root is selected in this order: `--workspace`, `SUIL_WORKSPACE`, then the
-nearest parent of the current directory that holds `data/common.yaml`. No
-path is ever derived from the location of suil's source.
+The workspace is the current directory: run suil from the root of the tree.
+There is no `--workspace` flag and no `SUIL_WORKSPACE` variable. No path is
+ever derived from the location of suil's source.
 
 Settings keep only what is not a path: the age key and recipient, the sudo
-password, color. They are read from the environment and from the
-workspace's `.env`, once, by the CLI entry point, and not on import.
+password, color. They are read from the environment and from `.env` in the
+current directory, once, by the CLI entry point, and not on import.
 
 The workspace and the settings are built once by the CLI and passed down.
 `deployment()` and every function under it take what they need as arguments;
 `cfg` and the global `directory` are removed. The catalogue build returns a
 new directory object per call instead of filling a shared one.
 
-The pytest plugin gains a `workspace` fixture that points at a fixture tree,
-and `modules_dir` becomes `workspace.modules_dir`.
+The pytest plugin gains a `workspace` fixture, the workspace of the current
+directory, and `modules_dir` becomes `workspace.modules_dir`.
 
 ## Non-goals
 
-No new CLI commands besides `--workspace`, no change to the data layout, no
+No new CLI commands or flags, no change to the data layout, no
 module distribution. Behaviour on hosts does not change.
 
 ## Acceptance

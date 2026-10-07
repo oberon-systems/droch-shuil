@@ -52,7 +52,7 @@ A `local` module has no version; its signature alone says when it changed.
 The module signature covers the repository URL and the `version` as well as
 the module's files, so moving `version` forces the module once on every node.
 
-## Installation``
+## Installation
 
 `suil install` clones every Git repository at its `version` into the suil cache,
 one checkout per repository and revision, and does nothing for `local`. A
