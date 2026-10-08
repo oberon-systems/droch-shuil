@@ -1,42 +1,45 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "suil"
-version = "0.1.0"
-description = "Balor configuration runner on top of pyinfra"
+version = "0.2.0"
+description = "Declarative Linux host configuration on top of pyinfra"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
-dependencies = []
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "click>=8.5",
+    "platformdirs>=4.11",
+    "pydantic>=2.13",
+    "pydantic-settings>=2.15",
+    "pyinfra>=3.10,<4",
+    "pyrage>=1.4",
+    "PyYAML>=6.0",
+    "questionary>=2.1",
+]
+
+[project.urls]
+Documentation = "https://oberon-systems.github.io/suil/"
+Source = "https://github.com/oberon-systems/suil"
 
 [project.scripts]
 suil = "suil.cli:cli"
 
 # A module's tests get the fixtures without a conftest of their own, wherever
-# they live. Registered at install time, so `pip install -e ./suil` again.
+# they live. Registered at install time, so `pip install -e .` again.
 [project.entry-points.pytest11]
 suil = "suil.testing"
 
-# The package dir is the project dir: the docs name suil/sdk/, not suil/suil/sdk/.
-[tool.setuptools]
-packages = [
-    "suil",
-    "suil.sdk",
-    "suil.sdk.models",
-    "suil.sdk.libs",
-    "suil.sdk.libs.config",
-    "suil.sdk.libs.host",
-    "suil.sdk.libs.inventory",
-    "suil.sdk.libs.manifest",
-    "suil.sdk.libs.merge",
-    "suil.sdk.libs.module",
-    "suil.sdk.libs.node",
-    "suil.sdk.libs.pyinfra",
-    "suil.sdk.libs.role",
-    "suil.sdk.libs.run",
-    "suil.sdk.libs.string",
-    "suil.sdk.libs.yaml",
-]
+[tool.setuptools.packages.find]
+include = ["suil*"]
 
-[tool.setuptools.package-dir]
-suil = "."
+[tool.pytest.ini_options]
+testpaths = ["tests"]

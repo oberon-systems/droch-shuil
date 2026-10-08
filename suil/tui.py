@@ -23,7 +23,7 @@ def role_select(directory) -> str | None:
 
 
 def tui(workspace, settings):
-    log.info('\n=== Balor Suil: an infrastructure manager ===\n')
+    log.info('\n=== Suil: an infrastructure manager ===\n')
     directory = Directory(workspace, role=role_select(Directory(workspace)))
 
     if not directory.nodes:

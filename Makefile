@@ -17,12 +17,11 @@ help:  ## Show the available targets
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  %-10s %s\n", $$1, $$2}' \
 		$(MAKEFILE_LIST)
 
-# suil itself is installed once pyproject.toml has landed in this tree.
 install:  ## Create the virtualenv, install the tooling and suil, wire up the hooks
 	python3 -m venv --prompt suil $(VENV)
 	$(PIP) install --upgrade pip
 	$(PIP) install -r requirements.txt
-	if [ -f pyproject.toml ]; then $(PIP) install -e .; fi
+	$(PIP) install -e .
 	$(VENV)/bin/pre-commit install
 
 lint:  ## Run the pre-commit hooks over every file

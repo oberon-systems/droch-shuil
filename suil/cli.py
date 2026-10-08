@@ -27,7 +27,7 @@ def _selection(function):
 @click.group(invoke_without_command=True)
 @click.pass_context
 def main(ctx):
-    """Balor Suil: an infrastructure manager."""
+    """Suil: an infrastructure manager."""
     workspace = Workspace()
     settings = Config()
     log_setup(settings.log_color)
