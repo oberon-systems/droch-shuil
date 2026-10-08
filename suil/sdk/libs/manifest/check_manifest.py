@@ -4,6 +4,8 @@ from suil.sdk.errors import ManifestError, ModuleError
 from suil.sdk.models import Config, Root
 
 from ..module.check_facter import check_facter
+from ..module.check_host_reads import check_host_reads
+from ..module.check_imports import check_imports
 from ..module.get_names import get_names
 from ..module.get_order import get_order
 from ..module.load_class import load_class
@@ -52,6 +54,9 @@ def check_manifest(file: Path, modules_dir: Path, cache_dir: Path) -> dict[str, 
 
 
 def _check_module(root: Root) -> None:
+    check_imports(root)
+    check_host_reads(root)
+
     if load_class(root) is None:
         if extra := sorted(entry.name for entry in root.path.iterdir() if entry.name not in META):
             raise ModuleError(f"modules/{root.name} has no code/main.py, so it is a meta module and holds only "

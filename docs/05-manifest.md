@@ -83,6 +83,10 @@ connects to no node.
   [03-sdk.md](03-sdk.md), each method with its protocol's signature.
 - A module with no code has a `requires.yaml` and nothing but it, its
   `README.md` and its `tests/`.
+- A module imports suil only through `suil.sdk` and `suil.testing`, in its
+  code, its collector and its tests.
+- Nothing under a module's `code/` reads the node: `get_fact`,
+  `run_command` and `host_run_command` belong in `facts/collector.py`.
 
 Each failure names the module, the file and what to change. `suil config`,
 `suil facts` and `suil apply` run the same validation before they build the

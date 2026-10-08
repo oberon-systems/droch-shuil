@@ -1,4 +1,6 @@
 from .check_facter import check_facter
+from .check_host_reads import check_host_reads
+from .check_imports import check_imports
 from .collect_facts import collect_facts
 from .collect_files import collect_files
 from .diff_configs import diff_configs
@@ -24,6 +26,8 @@ from .validate_file import validate_file
 
 __all__ = [
     'check_facter',
+    'check_host_reads',
+    'check_imports',
     'collect_facts',
     'collect_files',
     'diff_configs',

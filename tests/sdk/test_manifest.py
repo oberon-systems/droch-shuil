@@ -141,3 +141,28 @@ def test_autoupdate_takes_the_newest_tag_and_keeps_the_layout(remote):
 
     assert get_latest_tag(str(remote)) == 'v1.1'
     assert set_versions(text, {str(remote): 'v1.1'}) == text.replace('v1.0', 'v1.1')
+
+
+@pytest.mark.parametrize('path, source, error', [
+    ('code/main.py', 'from suil.directory import Directory\n', 'code/main.py:1 imports suil.directory'),
+    ('tests/test_a.py', 'import suil.cli\n', 'tests/test_a.py:1 imports suil.cli'),
+    ('code/main.py', 'x = 1\nrun_command(host, "id")\n', 'code/main.py:2 calls run_command'),
+    ('code/main.py', 'from pyinfra.api import get_fact\n', 'code/main.py:1 calls get_fact'),
+])
+def test_a_module_off_the_contract_is_named(tmp_path, path, source, error):
+    files = workspace(tmp_path, 'repos:\n  - repo: local\n    modules: [a]\n', {'a': ''})
+    target = tmp_path / 'modules' / 'a' / path
+    target.parent.mkdir(parents=True)
+    target.write_text(source)
+
+    with pytest.raises(ModuleError, match=error):
+        check_manifest(*files)
+
+
+def test_imports_through_the_sdk_and_testing_pass(tmp_path):
+    files = workspace(tmp_path, 'repos:\n  - repo: local\n    modules: [a]\n', {'a': ''})
+    (tmp_path / 'modules' / 'a' / 'tests').mkdir()
+    (tmp_path / 'modules' / 'a' / 'tests' / 'test_a.py').write_text(
+        'import suil.sdk.libs\nfrom suil.testing import get_order\n')
+
+    assert list(check_manifest(*files)) == ['a']
