@@ -6,4 +6,10 @@ commitizen:
     - fixup!
     - squash!
     - amend!
+    - 'bump:'
+  major_version_zero: true
   name: wyld_cz
+  tag_format: v$version
+  update_changelog_on_bump: true
+  version_provider: pep621
+  version_scheme: semver
