@@ -27,8 +27,8 @@ dependencies = [
 ]
 
 [project.urls]
-Documentation = "https://oberon-systems.github.io/suil/"
-Source = "https://github.com/oberon-systems/suil"
+Documentation = "https://oberon-systems.github.io/droch-shuil/"
+Source = "https://github.com/oberon-systems/droch-shuil"
 
 # PyPI refuses `suil` as too close to an existing name; the commands keep it.
 [project.scripts]

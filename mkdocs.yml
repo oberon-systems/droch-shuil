@@ -1,8 +1,8 @@
 # docs/ rendered with the readthedocs theme, restyled; .github/workflows/docs.yml
 # publishes it to GitHub Pages.
 site_name: suil
-site_url: https://oberon-systems.github.io/suil/
-repo_url: https://github.com/oberon-systems/suil
+site_url: https://oberon-systems.github.io/droch-shuil/
+repo_url: https://github.com/oberon-systems/droch-shuil
 edit_uri: blob/main/docs/
 
 docs_dir: docs

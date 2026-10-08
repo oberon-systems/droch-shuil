@@ -61,16 +61,10 @@ body,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  font-family: var(--sans);
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1;
-  color: #ffffff;
-  content: "A";
-  background: var(--accent);
-  border-radius: var(--radius-control);
+  width: 32px;
+  height: 32px;
+  content: "";
+  background: url("logo.svg") center / contain no-repeat;
 }
 
 .wy-side-nav-search .version {
