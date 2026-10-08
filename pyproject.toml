@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "suil"
+version = "0.1.0"
+description = "Balor configuration runner on top of pyinfra"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+suil = "suil.cli:cli"
+
+# A module's tests get the fixtures without a conftest of their own, wherever
+# they live. Registered at install time, so `pip install -e ./suil` again.
+[project.entry-points.pytest11]
+suil = "suil.testing"
+
+# The package dir is the project dir: the docs name suil/sdk/, not suil/suil/sdk/.
+[tool.setuptools]
+packages = [
+    "suil",
+    "suil.sdk",
+    "suil.sdk.models",
+    "suil.sdk.libs",
+    "suil.sdk.libs.config",
+    "suil.sdk.libs.host",
+    "suil.sdk.libs.inventory",
+    "suil.sdk.libs.manifest",
+    "suil.sdk.libs.merge",
+    "suil.sdk.libs.module",
+    "suil.sdk.libs.node",
+    "suil.sdk.libs.pyinfra",
+    "suil.sdk.libs.role",
+    "suil.sdk.libs.run",
+    "suil.sdk.libs.string",
+    "suil.sdk.libs.yaml",
+]
+
+[tool.setuptools.package-dir]
+suil = "."
