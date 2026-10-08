@@ -1,0 +1,28 @@
+# Agents
+.claude/
+.gemini/
+CLAUDE.local.md
+GEMINI.md
+.mcp.json
+
+# Python
+.venv
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.coverage
+
+# IDE
+.idea/
+.vscode/
+
+# pre-commit, kept in-tree by PRE_COMMIT_HOME
+.pre-commit
+
+.env
+
+# MkDocs output
+site/

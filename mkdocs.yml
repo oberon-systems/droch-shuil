@@ -1,0 +1,29 @@
+# docs/ rendered with the readthedocs theme, restyled; .github/workflows/docs.yml
+# publishes it to GitHub Pages.
+site_name: suil
+site_url: https://oberon-systems.github.io/suil/
+repo_url: https://github.com/oberon-systems/suil
+edit_uri: blob/main/docs/
+
+docs_dir: docs
+site_dir: site
+strict: true
+
+# No nav: pages are listed in file name order, so they are numbered. MkDocs
+# skips docs/.theme, as it skips every path that starts with a dot.
+theme:
+  name: readthedocs
+  custom_dir: docs/.theme
+  collapse_navigation: false
+  navigation_depth: 2
+  highlightjs: false
+
+extra_css:
+  - assets/fonts.css
+  - assets/suil.css
+
+extra_javascript:
+  - assets/suil.js
+
+hooks:
+  - docs/.theme/hooks.py

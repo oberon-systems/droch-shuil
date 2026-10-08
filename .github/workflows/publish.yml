@@ -1,0 +1,73 @@
+name: Publish to PyPI
+
+# A vX.Y.Z tag publishes X.Y.Z. The tag has to match the version in
+# pyproject.toml, and the wheel has to install and start before it is uploaded.
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: publish-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Check the tag against pyproject.toml
+        run: |
+          version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+              echo "tag $GITHUB_REF_NAME does not match version $version in pyproject.toml" >&2
+              exit 1
+          fi
+
+      - name: Build the sdist and the wheel
+        run: |
+          pip install "$(grep '^build==' requirements.txt)"
+          python -m build
+
+      - name: Install the wheel into a fresh virtualenv
+        run: |
+          python -m venv /tmp/check
+          /tmp/check/bin/pip install dist/*.whl
+          /tmp/check/bin/suil --help
+
+      - name: Upload the distributions
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Upload to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # Trusted publishing: PyPI accepts the OIDC token of this workflow and
+    # environment, so the repository holds no API token.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/suil/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download the distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1
