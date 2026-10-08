@@ -3,7 +3,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "suil"
+name = "droch-shuil"
 version = "0.2.0"
 description = "Declarative Linux host configuration on top of pyinfra"
 readme = "README.md"
@@ -30,8 +30,10 @@ dependencies = [
 Documentation = "https://oberon-systems.github.io/suil/"
 Source = "https://github.com/oberon-systems/suil"
 
+# PyPI refuses `suil` as too close to an existing name; the commands keep it.
 [project.scripts]
 suil = "suil.cli:cli"
+droch-shuil = "suil.cli:cli"
 
 # A module's tests get the fixtures without a conftest of their own, wherever
 # they live. Registered at install time, so `pip install -e .` again.

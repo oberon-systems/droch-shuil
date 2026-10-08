@@ -13,8 +13,8 @@ The principles behind it are in [00-architecture.md](00-architecture.md).
 
 ## Entry points
 
-Suil installs one console script, `suil` (`suil.cli:cli`), and it is entered
-in one of two ways. Both end in the same function, `deployment()` in
+Suil installs one console script under two names, `suil` and `droch-shuil`
+(both `suil.cli:cli`), and it is entered in one of two ways. Both end in the same function, `deployment()` in
 `suil/deployment.py`.
 
 1. **CLI** - `suil <command>`. `apply` runs the full cycle. `config` builds
