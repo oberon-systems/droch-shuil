@@ -1,3 +1,9 @@
+## v0.4.0 (2026-10-10)
+
+### Features
+
+- **suil**: modules carry their own OS layer
+
 ## v0.3.0 (2026-10-08)
 
 ### Features
