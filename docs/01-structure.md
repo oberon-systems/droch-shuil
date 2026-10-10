@@ -81,13 +81,16 @@ The node's data is merged bottom to top, each layer deep-merged over the
 previous one:
 
 1. `deployment` from `data/common.yaml`;
-2. `modules/<m>/data/*.yaml` of every module in the list;
+2. for every module in the list, its `modules/<m>/data/*.yaml`, then its
+   `modules/<m>/data/os/{family}/{release}.yaml`;
 3. the `hierarchy` from `data/common.yaml`, in order: `os/{family}/{release}.yaml`,
    `modules/{module}.yaml` once per module, `roles/{role}.yaml`,
    `nodes/{node}.yaml`.
 
 A missing file is an empty layer. A layer whose variable is not known yet,
-like `{family}` before the probe, is skipped.
+like `{family}` before the probe, is skipped: an unprobed node reads neither
+OS layer. The module's OS layer holds what the module knows about a
+distribution, and the workspace's `os/{family}/{release}.yaml` overrides it.
 
 `deep_merge()` merges dicts recursively and concatenates lists. A YAML tag on
 a value changes that: `!replace` overwrites, `!append` concatenates,

@@ -177,7 +177,7 @@ class Directory:
         data = {'deployment': self._common.get('deployment', {})}
 
         for module in modules:
-            data = deep(data, get_defaults(self._roots[module]))
+            data = deep(data, get_defaults(self._roots[module], family, release))
 
         for layer in self._hierarchy:
             # a per-module layer is one file per module, the rest carry them all

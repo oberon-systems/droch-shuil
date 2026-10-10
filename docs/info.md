@@ -18,6 +18,7 @@ four directories and one file under it:
     roles/            one file per role
     nodes/            one file per node, named by its FQDN
   modules/            module code and module defaults, read only
+    <module>/data/    defaults: *.yaml, then os/<family>/<release>.yaml
   modules.yaml        the modules of the workspace and where they come from
   facts/              what suil last read on each node, written by suil
   .runs/              the resolved configuration of each run, written by suil
@@ -87,7 +88,8 @@ Suil builds the configuration of every node of a run the same way.
    module after the modules its `requires.yaml` names, depth first, in the
    order of each list. A cycle is an error.
 4. It merges the layers, each one over the previous: `deployment` from
-   `common.yaml`, the `data/*.yaml` of every module, then every hierarchy
+   `common.yaml`, the `data/*.yaml` of every module followed by that
+   module's own `data/os/{family}/{release}.yaml`, then every hierarchy
    pattern in order. A pattern with `{module}` is read once per module.
 5. It expands the lookups, see [Lookup](#lookup).
 
