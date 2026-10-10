@@ -25,6 +25,7 @@ def _selection(function):
 
 
 @click.group(invoke_without_command=True)
+@click.version_option(package_name='droch-shuil', prog_name='suil')
 @click.pass_context
 def main(ctx):
     """Suil: an infrastructure manager."""
@@ -157,6 +158,15 @@ def validate(obj):
     """Check modules.yaml and every module it declares, without connecting."""
     workspace, _ = obj
     log.log(OK, f"modules.yaml: {counted(len(_roots(workspace)), 'module')} valid")
+
+
+@main.command()
+@click.pass_obj
+def init(obj):
+    """Lay out an empty workspace in the current directory."""
+    workspace, _ = obj
+    workspace.init()
+    log.log(OK, f'{workspace.base_dir}: workspace made, declare its modules in modules.yaml')
 
 
 @main.command('encrypt')

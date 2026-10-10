@@ -48,5 +48,9 @@ class DirectoryRoleExists(Error):
     """ Role Already Registered into Directory """
 
 
+class WorkspaceError(Error):
+    """ init was asked for where a workspace already is """
+
+
 class DirectoryError(Error):
     """ A run was asked for both a role and a node """

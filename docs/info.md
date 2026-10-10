@@ -191,6 +191,8 @@ suil config --role web
 suil facts --node web-01.example.com
 suil nodes
 suil modules
+suil init
+suil --version
 suil
 ```
 
@@ -206,6 +208,11 @@ suil
   to nothing; `config`, `facts` and `apply` run it first. `install` clones
   the Git repositories into the suil cache, and `autoupdate` moves each
   `version` to the newest tag.
+- `init` lays out an empty workspace in the current directory:
+  `data/common.yaml` with the default hierarchy, the layer directories
+  under `data/` and `modules/`. `modules.yaml` is yours to write. It writes
+  nothing where `data/`, `modules/` or `modules.yaml` already is.
+- `--version` prints the version of the installed package.
 - `suil` with no command opens the interactive mode. It asks for one role,
   shows the run and asks before it applies.
 

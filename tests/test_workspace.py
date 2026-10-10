@@ -2,10 +2,15 @@ import os
 import subprocess
 import sys
 
+from importlib.metadata import version
+
 import pytest
 
+from click.testing import CliRunner
+
+from suil.cli import main
 from suil.directory import Directory
-from suil.errors import DirectoryError
+from suil.errors import DirectoryError, WorkspaceError
 from suil.sdk.errors import DataError
 from suil.workspace import Workspace
 
@@ -65,3 +70,33 @@ def test_a_run_is_a_role_or_a_node_and_never_changes(tmp_path):
     directory.nodes[0].demo['value'] = 'changed'
 
     assert directory.nodes[0].demo['value'] == 'a'
+
+
+def test_init_lays_out_the_directories_and_common_yaml(tmp_path):
+    workspace = Workspace(tmp_path)
+    workspace.init()
+
+    assert Directory(workspace).inventory == {}
+    assert sorted(path.name for path in tmp_path.iterdir()) == ['data', 'modules']
+    assert sorted(path.name for path in workspace.data_dir.iterdir()) == [
+        'common.yaml', 'modules', 'nodes', 'os', 'roles']
+
+
+@pytest.mark.parametrize('present', ['data', 'modules', 'modules.yaml'])
+def test_init_refuses_where_a_workspace_already_is(tmp_path, present):
+    if present.endswith('.yaml'):
+        (tmp_path / present).write_text('repos: []\n')
+    else:
+        (tmp_path / present).mkdir()
+
+    with pytest.raises(WorkspaceError, match=present):
+        Workspace(tmp_path).init()
+
+    assert [path.name for path in tmp_path.iterdir()] == [present]
+
+
+def test_version_is_the_one_of_the_installed_package():
+    result = CliRunner().invoke(main, ['--version'])
+
+    assert result.exit_code == 0
+    assert result.output.strip() == f"suil, version {version('droch-shuil')}"
