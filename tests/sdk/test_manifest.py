@@ -245,6 +245,15 @@ def test_merge_keeps_the_live_releases(tmp_path, source):
     assert [release['version'] for release in index['modules']['two']] == ['1.0.0']
 
 
+def test_merge_with_no_live_index_starts_one(tmp_path, source):
+    url, *_ = source
+    repo = tmp_path / 'next' / 'modules'
+    module(repo, 'one')
+    pack_module('one-1.0.0', repo, tmp_path / 'next' / 'dist')
+
+    assert write_index(tmp_path / 'next' / 'dist', f'{url}/nowhere') == ['one-1.0.0']
+
+
 def test_a_released_version_with_other_bytes_is_refused(tmp_path, source):
     url, *_ = source
     repo = tmp_path / 'next' / 'modules'

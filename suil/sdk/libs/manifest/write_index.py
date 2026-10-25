@@ -18,7 +18,7 @@ def write_index(out_dir: Path, merge: str | None = None) -> list[str]:
     """Add every archive in out_dir to index.yaml, over the live index of the source `merge` or the one in
     out_dir; the releases added."""
     file = Path(out_dir) / 'index.yaml'
-    index = read_index(merge) if merge else _read(file)
+    index = read_index(merge, missing_ok=True) if merge else _read(file)
     added = []
 
     for archive in sorted(Path(out_dir).glob('*.tar.gz')):

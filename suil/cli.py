@@ -175,7 +175,7 @@ def pack(obj, tag, out_dir):
 
 @main.command('index')
 @click.argument('out_dir', type=click.Path(exists=True, file_okay=False, path_type=Path))
-@click.option('--merge', help='URL of the source whose live index the archives are added to.')
+@click.option('--merge', help='URL of the source whose live index takes the archives; a missing one starts anew.')
 def index_command(out_dir, merge):
     """Add every archive in OUT_DIR to its index.yaml."""
     added = write_index(out_dir, merge)
