@@ -57,7 +57,7 @@ class Directory:
             self.resolve(self._pattern('role'), required=True, role=role)
             names = tuple(name for name, found in self.inventory.items() if found == role)
 
-        roots = check_manifest(workspace.manifest, workspace.modules_dir, workspace.cache_dir) if names else {}
+        roots = check_manifest(workspace.manifest, workspace.modules_dir) if names else {}
         object.__setattr__(self, '_roots', roots)
 
         merged = {}

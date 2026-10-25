@@ -17,7 +17,6 @@ classifiers = [
 ]
 dependencies = [
     "click>=8.5",
-    "platformdirs>=4.11",
     "pydantic>=2.13",
     "pydantic-settings>=2.15",
     "pyinfra>=3.10,<4",

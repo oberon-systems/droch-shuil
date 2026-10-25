@@ -34,13 +34,10 @@ def test_a_changed_file_changes_the_signature(tmp_path):
     assert get_signature(demo) != before
 
 
-def test_a_git_module_signs_its_repository_and_version(tmp_path):
-    local = module(tmp_path, 'demo', 'demo: {}\n')
-    pinned = local.model_copy(update={'repo': 'https://git.example.com/m', 'version': 'v1'})
+def test_the_signature_covers_the_files_alone(tmp_path):
+    demo = module(tmp_path, 'demo', 'demo: {}\n')
 
-    assert get_signature(local) == 'sha256:' + hashlib.sha256(b'data/defaults.yaml\0demo: {}\n\0').hexdigest()
-    assert get_signature(pinned) != get_signature(local)
-    assert get_signature(pinned) != get_signature(pinned.model_copy(update={'version': 'v2'}))
+    assert get_signature(demo) == 'sha256:' + hashlib.sha256(b'data/defaults.yaml\0demo: {}\n\0').hexdigest()
 
 
 def test_an_equal_config_diffs_to_nothing():

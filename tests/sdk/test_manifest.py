@@ -4,8 +4,7 @@ import subprocess
 import pytest
 
 from suil.sdk.errors import ManifestError, ModuleError, ModuleOrderError
-from suil.sdk.libs.manifest import (check_manifest, get_checkout, get_latest_tag, install_repo, read_manifest,
-                                    set_versions)
+from suil.sdk.libs.manifest import check_manifest, get_latest_tag, install_repo, read_manifest, set_versions
 from suil.sdk.models import Repo
 
 GIT = ['git', '-c', 'user.name=test', '-c', 'user.email=test@example.com',
@@ -22,8 +21,8 @@ def remote(tmp_path):
     path = tmp_path / 'remote'
 
     for name, requires in {'one': 'two', 'two': ''}.items():
-        (path / name).mkdir(parents=True)
-        (path / name / 'requires.yaml').write_text(f'requires: [{requires}]\n')
+        (path / 'modules' / name).mkdir(parents=True)
+        (path / 'modules' / name / 'requires.yaml').write_text(f'requires: [{requires}]\n')
 
     git(tmp_path, 'init', '-q', '-b', 'main', str(path))
     git(path, 'add', '.')
@@ -43,60 +42,58 @@ def workspace(tmp_path, text, local=None):
 
     (tmp_path / 'modules.yaml').write_text(text)
 
-    return tmp_path / 'modules.yaml', tmp_path / 'modules', tmp_path / 'cache'
+    return tmp_path / 'modules.yaml', tmp_path / 'modules'
 
 
 def entry(remote, version, modules='one, two'):
     return f'  - repo:    {remote}\n    version: {version}\n    modules: [{modules}]\n'
 
 
-def test_a_tag_installs_cold_and_validates_warm_with_the_remote_gone(tmp_path, remote):
-    file, modules, cache = workspace(tmp_path, 'repos:\n' + entry(remote, 'v1.1'))
-    repo = read_manifest(file).repos[0]
+def test_a_tag_lays_its_modules_into_modules_and_validates_with_the_remote_gone(tmp_path, remote):
+    file, modules = workspace(tmp_path, 'repos:\n' + entry(remote, 'v1.1'))
 
-    with pytest.raises(ManifestError, match='run suil install'):
-        check_manifest(file, modules, cache)
+    with pytest.raises(ManifestError, match='module one is not in modules/; run suil install'):
+        check_manifest(file, modules)
 
-    checkout = install_repo(repo, cache)
-
-    assert git(checkout, 'rev-parse', 'HEAD') == git(remote, 'rev-parse', 'v1.1^{commit}')
+    assert install_repo(read_manifest(file).repos[0], modules) == ['one', 'two']
 
     shutil.rmtree(remote)
 
-    assert install_repo(repo, cache) is None
-    assert {name: root.path for name, root in check_manifest(file, modules, cache).items()} == {
-        'one': checkout / 'one', 'two': checkout / 'two'}
+    assert {name: root.path for name, root in check_manifest(file, modules).items()} == {
+        'one': modules / 'one', 'two': modules / 'two'}
+    assert not (modules / 'one' / '.git').exists()
 
 
-def test_a_sha_installs(tmp_path, remote):
-    sha = git(remote, 'rev-parse', 'v1.0')
-    file, modules, cache = workspace(tmp_path, 'repos:\n' + entry(remote, sha))
+def test_a_sha_installs_over_what_is_there(tmp_path, remote):
+    file, modules = workspace(tmp_path, 'repos:\n' + entry(remote, git(remote, 'rev-parse', 'v1.0')))
+    (modules / 'one').mkdir(parents=True)
+    (modules / 'one' / 'stale').write_text('')
 
-    checkout = install_repo(read_manifest(file).repos[0], cache)
+    install_repo(read_manifest(file).repos[0], modules)
 
-    assert git(checkout, 'rev-parse', 'HEAD') == sha
-    assert check_manifest(file, modules, cache)['one'].version == sha
+    assert sorted(path.name for path in (modules / 'one').iterdir()) == ['requires.yaml']
 
 
-def test_a_branch_is_refused_and_leaves_nothing_in_the_cache(tmp_path, remote):
+def test_a_branch_is_refused_and_lays_nothing(tmp_path, remote):
     repo = Repo(repo=str(remote), version='edge', modules=['one'])
 
     with pytest.raises(ManifestError, match='is a branch'):
-        install_repo(repo, tmp_path / 'cache')
+        install_repo(repo, tmp_path / 'modules')
 
-    assert list(get_checkout(tmp_path / 'cache', repo.repo, 'edge').parent.iterdir()) == []
+    assert not (tmp_path / 'modules').exists()
 
 
 def test_a_module_missing_from_its_repository_is_named(tmp_path, remote):
-    file, modules, cache = workspace(tmp_path, 'repos:\n' + entry(remote, 'v1.0', 'one, two, three'))
-    install_repo(read_manifest(file).repos[0], cache)
+    file, modules = workspace(tmp_path, 'repos:\n' + entry(remote, 'v1.0', 'one, two, three'))
 
-    with pytest.raises(ManifestError, match='module three is not in'):
-        check_manifest(file, modules, cache)
+    with pytest.raises(ManifestError, match='three not in modules/ of'):
+        install_repo(read_manifest(file).repos[0], modules)
+
+    assert not modules.exists()
 
 
 def test_a_name_declared_twice_is_refused(tmp_path, remote):
-    file, _, _ = workspace(tmp_path, 'repos:\n' + entry(remote, 'v1.0') + '  - repo: local\n    modules: [one]\n')
+    file, _ = workspace(tmp_path, 'repos:\n' + entry(remote, 'v1.0') + '  - repo: local\n    modules: [one]\n')
 
     with pytest.raises(ManifestError, match='declared twice: one'):
         read_manifest(file)
@@ -108,7 +105,7 @@ def test_a_name_declared_twice_is_refused(tmp_path, remote):
     'repos:\n  - repo: local\n    modules: [one]\n    rev: v1\n',
 ])
 def test_a_git_repo_needs_a_version_and_local_takes_none(tmp_path, text):
-    file, _, _ = workspace(tmp_path, text)
+    file, _ = workspace(tmp_path, text)
 
     with pytest.raises(ManifestError, match='modules.yaml is not valid'):
         read_manifest(file)

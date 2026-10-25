@@ -12,10 +12,6 @@ SIGNED_FILES = ('requires.yaml',)
 def get_signature(root: Root) -> str:
     digest = hashlib.sha256()
 
-    # A local module has no version, and its digest stays what it was before modules.yaml.
-    if root.version:
-        digest.update(f'{root.repo}\0{root.version}\0'.encode())
-
     paths: list[Path] = []
 
     for name in SIGNED:

@@ -33,50 +33,48 @@ repos:
     modules: [docker, nginx, unbound]
 ```
 
-- `repo` - a Git URL, or `local` for modules kept in the workspace under
-  `modules/`.
+- `repo` - a Git URL, or `local` for modules written in the workspace itself.
 - `version` - a tag or a full commit SHA; required for a Git repository,
   absent for `local`. A branch is refused, because it does not pin anything.
-- `modules` - the module directories taken from that repository. Anything
-  else in the repository is ignored.
+- `modules` - the module directories taken from that repository, from its
+  `modules/`. Anything else in the repository is ignored.
 
 A module is named by its directory name, and a name must be unique across
 `modules.yaml`. Roles and nodes keep selecting modules by that name.
+
+Every module lives in `modules/<name>` of the workspace, wherever it came
+from. A Git repository is only where `suil install` takes it from, and
+nothing after the install knows about it. Whether installed modules are
+committed or ignored by Git is the workspace's choice.
 
 ## Module version
 
 A module's version is the `version` of its repository. There is no
 `module.yaml` inside the module and nothing in it to keep in step with a tag.
-A `local` module has no version; its signature alone says when it changed.
-
-The module signature covers the repository URL and the `version` as well as
-the module's files, so moving `version` forces the module once on every node.
+The signature covers the module's files alone, so a new version forces the
+module once on every node only where its files changed.
 
 ## Installation
 
-`suil install` clones every Git repository at its `version` into the suil cache,
-one checkout per repository and revision, and does nothing for `local`. A
-repository and revision already in the cache are not fetched again, so an
-install is repeatable offline.
+`suil install` fetches every Git repository at its `version` and lays the
+modules it lists into `modules/`, replacing what is there, and does nothing
+for `local`. The clone is temporary and nothing of it is kept.
 
 `suil autoupdate` moves every `version` to the newest tag of its repository and
 rewrites `modules.yaml`; nothing else changes a `version`.
 
 `suil config`, `suil facts` and `suil apply` never touch the network. They
-read modules from the cache and from `modules/`, and fail with the
-`suil install` command to run when a declared repository and revision is not
-in the cache.
+read modules from `modules/` only, and fail with the `suil install` command
+to run when a declared module is not there.
 
 ## Validation
 
 `suil validate` checks the declaration and every module it names, and
 connects to no node.
 
-- `modules.yaml` parses; every Git repository has a `version`, and no
-  `version` is a branch.
-- Every declared repository and revision is in the cache.
-- Every listed module exists in its repository, and no name is declared
-  twice.
+- `modules.yaml` parses and every Git repository has a `version`.
+- Every declared module is in `modules/`, every directory there is declared,
+  and no name is declared twice.
 - Every `requires.yaml` entry names a declared module, and the graph has no
   cycle.
 - Every module with code implements the interfaces from
@@ -106,6 +104,6 @@ own repositories is a later step of the plan.
 - `suil validate` passes on the tree and runs in CI through pre-commit.
 - Every role resolves the same module order and the same `.runs/` catalogue
   as before the change.
-- A Git repository pinned by tag and one pinned by SHA install from a cold
-  cache and from a warm one with the network off, in tests against temporary
-  repositories.
+- A Git repository pinned by tag and one pinned by SHA install into
+  `modules/`, and validate with the repository gone, in tests against
+  temporary repositories.

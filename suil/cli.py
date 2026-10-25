@@ -109,7 +109,7 @@ def modules(obj):
     for name, root in sorted(roots.items()):
         requires = get_requires(root)
         kind = 'meta' if not (root.path / 'code' / 'main.py').is_file() else 'module'
-        log.info(f'{name}  [{kind}]' + (f'  {root.repo} {root.version}' if root.version else ''))
+        log.info(f'{name}  [{kind}]')
 
         if requires:
             log.info('  requires: ' + ', '.join(requires))
@@ -119,13 +119,13 @@ def modules(obj):
 @main.command()
 @click.pass_obj
 def install(obj):
-    """Clone the Git repositories of modules.yaml into the cache."""
+    """Lay the modules of every Git repository in modules.yaml into modules/."""
     workspace, _ = obj
 
     for repo in read_manifest(workspace.manifest).repos:
         if not repo.local:
-            installed = install_repo(repo, workspace.cache_dir)
-            log.log(OK, f"{repo.repo} {repo.version}: {'installed' if installed else 'in the cache'}")
+            installed = install_repo(repo, workspace.modules_dir)
+            log.log(OK, f"{repo.repo} {repo.version}: {', '.join(installed)}")
 
 
 @main.command()
@@ -188,7 +188,7 @@ def decrypt_command(obj, value):
 
 
 def _roots(workspace):
-    return check_manifest(workspace.manifest, workspace.modules_dir, workspace.cache_dir)
+    return check_manifest(workspace.manifest, workspace.modules_dir)
 
 
 @errors_handler

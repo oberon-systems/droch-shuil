@@ -25,7 +25,6 @@ suil reads and writes in it.
 - `base_dir` - the workspace directory.
 - `data_dir`, `modules_dir`, `manifest` (`modules.yaml`) - read only.
 - `facts_dir`, `runs_dir` - written by a run, gitignored.
-- `cache_dir` - the suil user cache, where Git modules are installed.
 
 The workspace is the current directory: run suil from the root of the tree.
 There is no `--workspace` flag and no `SUIL_WORKSPACE` variable. No path is

@@ -10,8 +10,6 @@ from ..module.get_names import get_names
 from ..module.get_order import get_order
 from ..module.load_class import load_class
 from ..module.load_code import load_code
-from .get_checkout import get_checkout
-from .get_revision import get_revision
 from .get_roots import get_roots
 from .read_manifest import read_manifest
 
@@ -19,31 +17,20 @@ from .read_manifest import read_manifest
 META = {'requires.yaml', 'README.md', 'tests'}
 
 
-def check_manifest(file: Path, modules_dir: Path, cache_dir: Path) -> dict[str, Root]:
+def check_manifest(file: Path, modules_dir: Path) -> dict[str, Root]:
     """Validate modules.yaml and every module it declares, offline; the root of each module."""
     manifest = read_manifest(file)
-
-    for repo in manifest.repos:
-        if not repo.local:
-            checkout = get_checkout(cache_dir, repo.repo, repo.version)
-
-            if not checkout.is_dir():
-                raise ManifestError(f'{repo.repo} {repo.version} is not in the cache: run suil install')
-
-            get_revision(checkout, repo)
-
-    roots = get_roots(manifest, modules_dir, cache_dir)
+    roots = get_roots(manifest, modules_dir)
     local = {name for repo in manifest.repos if repo.local for name in repo.modules}
 
-    if undeclared := sorted(set(get_names(modules_dir)) - local):
+    if undeclared := sorted(set(get_names(modules_dir)) - set(roots)):
         raise ManifestError(f"modules.yaml: modules/{', modules/'.join(undeclared)} not declared; "
                             f"add to the repo: local entry or remove")
 
     for root in roots.values():
         if not root.path.is_dir():
-            where = 'modules/' if root.version is None else f'{root.repo} {root.version}'
-            raise ManifestError(f'modules.yaml: module {root.name} is not in {where}; '
-                                f'fix the name or drop it')
+            hint = 'fix the name or drop it' if root.name in local else 'run suil install'
+            raise ManifestError(f'modules.yaml: module {root.name} is not in modules/; {hint}')
 
     get_order(sorted(roots), roots)
 

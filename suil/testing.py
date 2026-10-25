@@ -27,7 +27,7 @@ def modules_dir(workspace):
 
 @pytest.fixture(scope='session')
 def modules(workspace):
-    return get_roots(read_manifest(workspace.manifest), workspace.modules_dir, workspace.cache_dir)
+    return get_roots(read_manifest(workspace.manifest), workspace.modules_dir)
 
 
 @pytest.fixture(scope='session')

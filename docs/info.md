@@ -17,7 +17,7 @@ four directories and one file under it:
     modules/          one file per module
     roles/            one file per role
     nodes/            one file per node, named by its FQDN
-  modules/            module code and module defaults, read only
+  modules/            every module, local or laid out by suil install
     <module>/data/    defaults: *.yaml, then os/<family>/<release>.yaml
   modules.yaml        the modules of the workspace and where they come from
   facts/              what suil last read on each node, written by suil
@@ -205,9 +205,9 @@ suil
 - `nodes` lists the nodes of the workspace and their roles. `modules` lists
   the modules, their `requires` and their run order.
 - `validate` checks `modules.yaml` and every module it declares and connects
-  to nothing; `config`, `facts` and `apply` run it first. `install` clones
-  the Git repositories into the suil cache, and `autoupdate` moves each
-  `version` to the newest tag.
+  to nothing; `config`, `facts` and `apply` run it first. `install` lays
+  the modules of the Git repositories into `modules/`, and `autoupdate`
+  moves each `version` to the newest tag.
 - `init` lays out an empty workspace in the current directory:
   `data/common.yaml` with the default hierarchy, the layer directories
   under `data/` and `modules/`. `modules.yaml` is yours to write. It writes
