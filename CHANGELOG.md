@@ -1,3 +1,9 @@
+## v0.6.0 (2026-10-25)
+
+### Features
+
+- **suil**: install lays modules into modules/, no git at runtime
+
 ## v0.5.0 (2026-10-10)
 
 ### Features
