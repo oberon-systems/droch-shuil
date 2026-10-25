@@ -1,3 +1,9 @@
+## v0.7.2 (2026-10-25)
+
+### Bug Fixes
+
+- **suil**: meta module keeps .cz.yaml and CHANGELOG.md
+
 ## v0.7.1 (2026-10-25)
 
 ### Bug Fixes
