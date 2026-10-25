@@ -1,3 +1,13 @@
+## v0.7.1 (2026-10-25)
+
+### Bug Fixes
+
+- **suil**: index --merge starts a missing index
+
+### Build
+
+- **publish**: cache the droch-shuil venv in the action
+
 ## v0.7.0 (2026-10-25)
 
 ### Breaking Changes
