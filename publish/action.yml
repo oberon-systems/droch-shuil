@@ -7,7 +7,7 @@ inputs:
     description: The <module>-<version> tag to pack.
     default: ${{ github.ref_name }}
   index-url:
-    description: URL of the source whose live index the archive is added to; empty on the first release.
+    description: URL of the source whose live index the archive is added to; a missing index starts a new one.
     default: ""
   out-dir:
     description: Directory the archive and index.yaml are written to.
@@ -25,16 +25,39 @@ runs:
   using: composite
   steps:
     - name: Set up Python
+      id: python
       uses: actions/setup-python@v7
       with:
         python-version: "3.12"
 
-    - name: Install droch-shuil
+    - name: Resolve the droch-shuil version
+      id: suil
       shell: bash
       env:
         REF:     ${{ github.action_ref }}
         VERSION: ${{ inputs.suil-version }}
-      run: pip install "droch-shuil==${VERSION:-${REF#v}}"
+      run: echo "version=${VERSION:-${REF#v}}" >>"$GITHUB_OUTPUT"
+
+    # The venv is cached in the calling repository, keyed by droch-shuil and Python.
+    - name: Restore droch-shuil
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.suil-venv
+        key: suil-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ steps.suil.outputs.version }}
+
+    - name: Install droch-shuil
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        VERSION: ${{ steps.suil.outputs.version }}
+      run: |
+        python -m venv ~/.suil-venv
+        ~/.suil-venv/bin/pip install "droch-shuil==$VERSION"
+
+    - name: Put suil on PATH
+      shell: bash
+      run: echo ~/.suil-venv/bin >>"$GITHUB_PATH"
 
     - name: Pack the module
       shell: bash
