@@ -1,3 +1,17 @@
+## v0.7.0 (2026-10-25)
+
+### Breaking Changes
+
+- **suil**: modules.yaml: a source pins modules as name: version; version and Git URLs go.
+
+### Features
+
+- **suil**: modules come over HTTP from index.yaml, git is gone
+
+### Documentation
+
+- **docs**: 07 moves modules into one repository, installed into modules/
+
 ## v0.6.0 (2026-10-25)
 
 ### Features
