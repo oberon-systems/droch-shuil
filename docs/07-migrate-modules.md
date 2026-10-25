@@ -1,9 +1,9 @@
 # Moving modules out
 
-The modules leave the workspace's `modules/` tree and move into their own Git
-repositories, one repository per group. The workspace then installs them
-through `modules.yaml` like any other source. The move goes one group at a
-time and stays reversible until `modules/` is removed.
+The modules leave the workspace's own tree and move into one public Git
+repository. The workspace then installs them through `modules.yaml` like any
+other source, and they land in the same `modules/<name>` they left. The move
+goes one module at a time and stays reversible at every step.
 
 ## Today
 
@@ -18,62 +18,52 @@ time and stays reversible until `modules/` is removed.
   - `client-vpn` requires `amneziawg`, `docker`, `xray`, `awg-keeper`,
     `nginx`.
 
-## Groups
+## The repository
 
-- **base** - `base`, `hostname`, `selinux`, `repos`, `packages`, `ssh`,
-  `accounts`, `nftables`. The whole `base` run order, nftables last included,
-  stays in one repository and moves in one step.
-- **services** - `docker`, `nginx`, `unbound`. They require `repos` and
-  `nftables` from base.
-- **vpn** - `client-vpn`, `amneziawg`, `xray`, `awg-keeper`. They require
-  `repos` from base, and `client-vpn` requires `docker` and `nginx` from
-  services.
+The module repository has the layout of a workspace: every module is
+`modules/<name>/`, and its own `modules.yaml` lists them all in one
+`repo: local` entry, so `suil validate` and the module tests run there as in
+any workspace.
 
-Every module is in exactly one group. A `requires` entry may name a module of
-another group: module names in `modules.yaml` are one namespace whatever
-repository a module comes from.
+Every module is versioned on its own. Its tags are `<name>-<version>`, its
+commitizen config and changelog are in its directory, and a bump counts only
+the commits under `modules/<name>/`. A pushed tag is the release.
 
-## Moving a group
+## Moving a module
 
-1. The group's directories are cut out of the workspace history with
-   `git filter-repo`, into a new repository with one directory per module at
-   its root.
-2. The repository gets its first tag, `v1.0.0`.
-3. In `modules.yaml` the group's modules leave the `repo: local` entry and get
-   an entry of their own with the repository URL and `version: v1.0.0`.
-4. `suil install` fetches the repository into the cache.
+1. The module's directory is copied into the repository, without history,
+   and the commit that brings it in is tagged `<name>-0.1.0` by hand.
+2. In the workspace's `modules.yaml` the module leaves the `repo: local`
+   entry and gets an entry of its own with the repository URL and
+   `version: <name>-0.1.0`.
+3. The workspace stops tracking `modules/<name>/`: whether installed modules
+   are committed or ignored by Git is the workspace's choice.
+4. `suil install` lays the module back into `modules/<name>`.
 5. Module names do not change, so `data/` is not touched: roles and nodes
    select the same names, and encrypted values stay where they are.
 
-The groups move in the order base, services, vpn, so every group finds what
-it requires already moved or still in `modules/`.
+Leaves move before what requires them, so a module always finds what it
+requires already moved or still local. Meta modules move last.
 
-## Checking a group
+## Checking a module
 
-After each group every role must resolve the same module order and write the
+After each module every role must resolve the same module order and write the
 same `node.yaml` and `<module>.yaml` under `.runs/` on
-`suil apply --dry-run` as before the group moved. The module signatures do
-change, because they now cover the repository URL and the `version`, so the
-first real run forces every moved module once.
+`suil apply --dry-run` as before the move. The signature covers the module's
+files alone, and the installed files are the ones that were tracked, so no
+module is forced by the move.
 
 ## Rollback
 
-A rollback is the previous `modules.yaml`, restored from Git. The group's
-directories are still in `modules/` until the last step, so the `local` entry
-picks them up again, and nothing on a node or in the cache needs a hand.
-
-## Removing modules/
-
-The moved directories stay in `modules/`, unused, until a full run of every
-role on the new sources converges with `nothing to apply`. Then `modules/` and
-the `repo: local` entry are removed from the workspace, and module tests run
-in each module repository's own CI.
+A rollback is the previous `modules.yaml` and the module's directory, both
+restored from the workspace's Git history. Nothing on a node needs a hand.
 
 ## Acceptance
 
-- `modules.yaml` has three Git entries, base, services and vpn, each pinned to
-  a tag, and no `local` entry.
+- Every moved module has its own Git entry in the workspace's
+  `modules.yaml`, pinned to a `<name>-<version>` tag; the `local` entry keeps
+  only what the workspace writes itself.
 - A clean clone of the workspace runs `suil install` and gets every module
-  without module code in its own tree.
+  in `modules/`.
 - Every role resolves the same module order and the same `.runs/` catalogue
-  as before the move.
+  as before the move, and no module is forced.
