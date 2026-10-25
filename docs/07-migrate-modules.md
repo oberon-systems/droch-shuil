@@ -1,8 +1,8 @@
 # Moving modules out
 
-The modules leave the workspace's own tree and move into one public Git
-repository. The workspace then installs them through `modules.yaml` like any
-other source, and they land in the same `modules/<name>` they left. The move
+The modules leave the workspace's own tree and move into one public
+repository, released from there to a source over HTTP. The workspace then
+installs them through `modules.yaml` like any other source, and they land in the same `modules/<name>` they left. The move
 goes one module at a time and stays reversible at every step.
 
 ## Today
@@ -27,15 +27,18 @@ any workspace.
 
 Every module is versioned on its own. Its tags are `<name>-<version>`, its
 commitizen config and changelog are in its directory, and a bump counts only
-the commits under `modules/<name>/`. A pushed tag is the release.
+the commits under `modules/<name>/`. A pushed tag is the release: CI packs
+the module and adds it to the index of the source, see
+[05-manifest.md](05-manifest.md#publishing).
 
 ## Moving a module
 
 1. The module's directory is copied into the repository, without history,
-   and the commit that brings it in is tagged `<name>-0.1.0` by hand.
+   and released with `cz bump`, which tags `<name>-0.1.0`; CI publishes it
+   to the source.
 2. In the workspace's `modules.yaml` the module leaves the `repo: local`
-   entry and gets an entry of its own with the repository URL and
-   `version: <name>-0.1.0`.
+   entry for the entry of the source, as `<name>: 0.1.0` under its
+   `modules`.
 3. The workspace stops tracking `modules/<name>/`: whether installed modules
    are committed or ignored by Git is the workspace's choice.
 4. `suil install` lays the module back into `modules/<name>`.
@@ -60,9 +63,9 @@ restored from the workspace's Git history. Nothing on a node needs a hand.
 
 ## Acceptance
 
-- Every moved module has its own Git entry in the workspace's
-  `modules.yaml`, pinned to a `<name>-<version>` tag; the `local` entry keeps
-  only what the workspace writes itself.
+- Every moved module is pinned to its version under the source entry of the
+  workspace's `modules.yaml`; the `local` entry keeps only what the workspace
+  writes itself.
 - A clean clone of the workspace runs `suil install` and gets every module
   in `modules/`.
 - Every role resolves the same module order and the same `.runs/` catalogue

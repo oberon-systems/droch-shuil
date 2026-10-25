@@ -206,8 +206,10 @@ suil
   the modules, their `requires` and their run order.
 - `validate` checks `modules.yaml` and every module it declares and connects
   to nothing; `config`, `facts` and `apply` run it first. `install` lays
-  the modules of the Git repositories into `modules/`, and `autoupdate`
-  moves each `version` to the newest tag.
+  the modules of every source into `modules/` over HTTP, and `autoupdate`
+  moves each module to the newest version in its source's index.
+- `pack` and `index` are for a module repository: they build the archive of
+  a `<module>-<version>` tag and the `index.yaml` a source serves.
 - `init` lays out an empty workspace in the current directory:
   `data/common.yaml` with the default hierarchy, the layer directories
   under `data/` and `modules/`. `modules.yaml` is yours to write. It writes

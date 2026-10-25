@@ -1,5 +1,7 @@
 import logging
 
+from pathlib import Path
+
 import click
 import yaml
 
@@ -8,7 +10,8 @@ from suil.deployment import Deployment
 from suil.directory import Directory, counted
 from suil.errors import errors_handler
 from suil.log import OK, log_setup
-from suil.sdk.libs.manifest import check_manifest, get_latest_tag, install_repo, read_manifest, set_versions
+from suil.sdk.libs.manifest import (check_manifest, get_latest_version, install_module, pack_module, read_index,
+                                    read_manifest, set_versions, write_index)
 from suil.sdk.libs.module import get_order, get_requires
 from suil.sdk.libs.string import decrypt, encrypt
 from suil.tui import tui
@@ -119,19 +122,24 @@ def modules(obj):
 @main.command()
 @click.pass_obj
 def install(obj):
-    """Lay the modules of every Git repository in modules.yaml into modules/."""
+    """Lay the modules of every source in modules.yaml into modules/."""
     workspace, _ = obj
 
     for repo in read_manifest(workspace.manifest).repos:
-        if not repo.local:
-            installed = install_repo(repo, workspace.modules_dir)
-            log.log(OK, f"{repo.repo} {repo.version}: {', '.join(installed)}")
+        if repo.local:
+            continue
+
+        index = read_index(repo.repo)
+
+        for name, version in repo.modules.items():
+            install_module(repo.repo, index, name, version, workspace.modules_dir)
+            log.log(OK, f'{name} {version}: {repo.repo}')
 
 
 @main.command()
 @click.pass_obj
 def autoupdate(obj):
-    """Move every version in modules.yaml to the newest tag of its repository."""
+    """Move every module of a source in modules.yaml to the newest version in its index."""
     workspace, _ = obj
     versions = {}
 
@@ -139,17 +147,39 @@ def autoupdate(obj):
         if repo.local:
             continue
 
-        if not (latest := get_latest_tag(repo.repo)):
-            log.warning(f'{repo.repo}: no tags, {repo.version} kept')
-        elif latest != repo.version:
-            log.info(f'{repo.repo}: {repo.version} -> {latest}')
-            versions[repo.repo] = latest
+        index = read_index(repo.repo)
+
+        for name, version in repo.modules.items():
+            if not (latest := get_latest_version(index, name)):
+                log.warning(f'{name}: not in the index of {repo.repo}, {version} kept')
+            elif latest != version:
+                log.info(f'{name}: {version} -> {latest}')
+                versions[name] = latest
 
     if versions:
         workspace.manifest.write_text(set_versions(workspace.manifest.read_text(), versions))
         log.warning('modules.yaml updated: run suil install')
     else:
         log.log(OK, 'modules.yaml is up to date')
+
+
+@main.command()
+@click.argument('tag')
+@click.argument('out_dir', type=click.Path(file_okay=False, path_type=Path))
+@click.pass_obj
+def pack(obj, tag, out_dir):
+    """Pack the module a <module>-<version> TAG names into an archive in OUT_DIR."""
+    workspace, _ = obj
+    log.log(OK, f'{tag}: {pack_module(tag, workspace.modules_dir, out_dir)}')
+
+
+@main.command('index')
+@click.argument('out_dir', type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option('--merge', help='URL of the source whose live index the archives are added to.')
+def index_command(out_dir, merge):
+    """Add every archive in OUT_DIR to its index.yaml."""
+    added = write_index(out_dir, merge)
+    log.log(OK, f"{out_dir / 'index.yaml'}: {', '.join(added) or 'nothing new'}")
 
 
 @main.command()

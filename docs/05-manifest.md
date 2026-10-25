@@ -2,9 +2,9 @@
 
 A workspace declares the modules it uses in one file, `modules.yaml`, the way
 [pre-commit](https://pre-commit.com) declares its hook repositories in
-`.pre-commit-config.yaml`. suil installs the modules from there. A module
-carries no manifest of its own: its version is the `version` its repository
-is pinned to.
+`.pre-commit-config.yaml`. suil installs the modules from there over plain
+HTTP; it never runs Git. A module carries no manifest of its own: its version
+is the one `modules.yaml` pins it to.
 
 ## Today
 
@@ -23,45 +23,67 @@ is pinned to.
 
 ```yaml
 repos:
-  - repo:    https://git.example.com/suil-modules
-    version: v1.4.0
-    modules: [base, hostname, selinux, repos, packages, ssh, accounts, nftables]
-  - repo:    https://git.example.com/suil-vpn
-    version: 4f3230a9c1d2e8b7a6f5e4d3c2b1a09f8e7d6c5b
-    modules: [client-vpn, amneziawg, awg-keeper, xray]
+  - repo:    https://modules.example.com/suil
+    modules:
+      hostname: 0.1.0
+      ssh:      0.3.1
   - repo:    local
     modules: [docker, nginx, unbound]
 ```
 
-- `repo` - a Git URL, or `local` for modules written in the workspace itself.
-- `version` - a tag or a full commit SHA; required for a Git repository,
-  absent for `local`. A branch is refused, because it does not pin anything.
-- `modules` - the module directories taken from that repository, from its
-  `modules/`. Anything else in the repository is ignored.
+- `repo` - the `http(s)://` URL of a source, or `local` for modules written
+  in the workspace itself.
+- `modules` - for a source, a map of module name to version, so every module
+  is pinned on its own; for `local`, a list of the directories under
+  `modules/`.
 
 A module is named by its directory name, and a name must be unique across
 `modules.yaml`. Roles and nodes keep selecting modules by that name.
 
 Every module lives in `modules/<name>` of the workspace, wherever it came
-from. A Git repository is only where `suil install` takes it from, and
-nothing after the install knows about it. Whether installed modules are
+from. A source is only where `suil install` takes it from, and nothing
+after the install knows about it. Whether installed modules are
 committed or ignored by Git is the workspace's choice.
+
+## Sources
+
+A source is any static HTTP server: nginx, an object store, anything that
+serves files. Under its URL it serves `index.yaml` and one archive per module
+version:
+
+```yaml
+modules:
+  hostname:
+    - version: 0.1.1
+      url:     hostname-0.1.1.tar.gz
+      sha256:  9f2c...
+    - version: 0.1.0
+      url:     hostname-0.1.0.tar.gz
+      sha256:  41ab...
+```
+
+- `url` - the archive, relative to the source URL or absolute.
+- An archive `<name>-<version>.tar.gz` holds `<name>/` and nothing else, never
+  the repository the module is written in.
 
 ## Module version
 
-A module's version is the `version` of its repository. There is no
-`module.yaml` inside the module and nothing in it to keep in step with a tag.
-The signature covers the module's files alone, so a new version forces the
-module once on every node only where its files changed.
+A module's version is the one `modules.yaml` pins it to, a semver version
+released from a `<module>-<version>` tag. There is no `module.yaml` inside the
+module and nothing in it to keep in step with the tag. The signature covers
+the module's files alone, so a new version forces the module once on every
+node only where its files changed.
 
 ## Installation
 
-`suil install` fetches every Git repository at its `version` and lays the
-modules it lists into `modules/`, replacing what is there, and does nothing
-for `local`. The clone is temporary and nothing of it is kept.
+`suil install` reads the index of every source, downloads the archive of each
+module at its version, checks its `sha256`, and lays it into `modules/`,
+replacing what is there. It does nothing for `local`. An archive whose digest
+differs, or that holds anything besides its module, lays nothing.
 
-`suil autoupdate` moves every `version` to the newest tag of its repository and
-rewrites `modules.yaml`; nothing else changes a `version`.
+`suil autoupdate` moves every module of a source to the newest version in the
+index, compared by semver, and rewrites `modules.yaml` line by line, so its
+layout and comments stay; nothing else changes a version.
 
 `suil config`, `suil facts` and `suil apply` never touch the network. They
 read modules from `modules/` only, and fail with the `suil install` command
@@ -72,7 +94,8 @@ to run when a declared module is not there.
 `suil validate` checks the declaration and every module it names, and
 connects to no node.
 
-- `modules.yaml` parses and every Git repository has a `version`.
+- `modules.yaml` parses, every module of a source has a version, and `local`
+  lists its modules without one.
 - Every declared module is in `modules/`, every directory there is declared,
   and no name is declared twice.
 - Every `requires.yaml` entry names a declared module, and the graph has no
@@ -90,6 +113,78 @@ Each failure names the module, the file and what to change. `suil config`,
 `suil facts` and `suil apply` run the same validation before they build the
 catalogue.
 
+## Publishing
+
+A module repository keeps its modules under `modules/<name>` and releases one
+with `cz bump` in that directory, which commits and tags `<name>-<version>`.
+CI turns the pushed tag into what the source serves, with two commands that
+need neither Git nor the old archives:
+
+```shell
+suil pack hostname-0.1.1 dist/                          # dist/hostname-0.1.1.tar.gz
+suil index dist/ --merge https://modules.example.com/suil   # dist/index.yaml
+```
+
+- `suil pack TAG OUT_DIR` - run at the root of the module repository. The
+  module is the directory under `modules/` the tag starts with, followed by a
+  semver version, so `nginx-extra-1.0.0` is never `nginx`. The archive has the
+  same bytes on every build: sorted entries, mtime 0, owner 0, no
+  `__pycache__`.
+- `suil index OUT_DIR [--merge URL]` - adds every archive in `OUT_DIR` to the
+  live index of the source at `URL`, or to `OUT_DIR/index.yaml`, and writes
+  `OUT_DIR/index.yaml`. A version already released with other bytes is an
+  error.
+
+Uploading `dist/` is the publisher's: suil names no host.
+
+### GitHub Actions
+
+droch-shuil ships the two commands as an action:
+
+```yaml
+on:
+  push:
+    tags: ["*-*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: suil
+        uses: oberon-systems/droch-shuil/publish@v0.7.0
+        with:
+          index-url: ${{ vars.SUIL_INDEX_URL }}
+      - name: Upload
+        run: rsync -a "${{ steps.suil.outputs.dir }}/" "$TARGET"
+```
+
+The action installs the droch-shuil of its own ref, so pin it to a tag. Leave
+`index-url` empty on the very first release, when there is no index yet.
+
+### GitLab CI
+
+```yaml
+publish:
+  image: python:3.12
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - pip install droch-shuil
+    - suil pack "$CI_COMMIT_TAG" dist/
+    - suil index dist/ ${SUIL_INDEX_URL:+--merge "$SUIL_INDEX_URL"}
+    - rsync -a dist/ "$TARGET"
+```
+
+### Locally
+
+The GitHub workflow runs on a workstation with
+[act](https://github.com/nektos/act), given a tag push event:
+
+```shell
+act push --eventpath tag.json   # {"ref": "refs/tags/hostname-0.1.1"}
+```
+
 ## Migration
 
 The workspace gets a `modules.yaml` with one `repo: local` entry listing
@@ -104,6 +199,6 @@ own repositories is a later step of the plan.
 - `suil validate` passes on the tree and runs in CI through pre-commit.
 - Every role resolves the same module order and the same `.runs/` catalogue
   as before the change.
-- A Git repository pinned by tag and one pinned by SHA install into
-  `modules/`, and validate with the repository gone, in tests against
-  temporary repositories.
+- A source serving archives built by `suil pack` and `suil index` installs
+  into `modules/`, and validates with the server gone, in tests against a
+  local HTTP server.

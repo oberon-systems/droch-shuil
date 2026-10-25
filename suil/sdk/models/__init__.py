@@ -8,6 +8,8 @@ from .tagged import Tagged
 from .lookup import Lookup
 from .repo import Repo
 from .manifest import Manifest
+from .release import Release
+from .index import Index
 from .root import Root
 
 __all__ = [
@@ -19,5 +21,7 @@ __all__ = [
     'Lookup',
     'Repo',
     'Manifest',
+    'Release',
+    'Index',
     'Root',
 ]

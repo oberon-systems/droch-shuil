@@ -3,30 +3,34 @@ import re
 import yaml
 
 from suil.sdk.errors import ManifestError
+from suil.sdk.models.repo import LOCAL
 
 REPO = re.compile(r'^\s*-\s*repo:\s*(\S+)')
-VERSION = re.compile(r'^(\s*version:\s*)\S+(.*)$')
+PIN = re.compile(r'^(\s+)([^\s:#\'"]+)(:\s*)(\S+)(.*)$')
 
 
 def set_versions(text: str, versions: dict[str, str]) -> str:
-    """modules.yaml with the version of each repository in `versions` replaced, line by line,
+    """modules.yaml with the version of each module in `versions` replaced, line by line,
     so the layout and the comments stay as they were."""
-    lines, current = [], None
+    lines, local = [], True
 
     for line in text.splitlines(keepends=True):
-        if found := REPO.match(line):
-            current = found.group(1).strip('\'"')
-        elif current in versions and (found := VERSION.match(line.rstrip('\n'))):
-            version = versions[current]
+        body = line.rstrip('\n')
+
+        if found := REPO.match(body):
+            local = found.group(1).strip('\'"') == LOCAL
+        elif not local and (found := PIN.match(body)) and found.group(2) in versions:
+            version = versions[found.group(2)]
             value = version if yaml.safe_load(version) == version else f"'{version}'"
-            line = f'{found.group(1)}{value}{found.group(2)}' + line[len(line.rstrip('\n')):]
+            line = f'{found.group(1)}{found.group(2)}{found.group(3)}{value}{found.group(5)}' + line[len(body):]
 
         lines.append(line)
 
     result = ''.join(lines)
-    written = {entry['repo']: entry.get('version') for entry in (yaml.safe_load(result) or {}).get('repos', [])}
+    written = {name: version for entry in (yaml.safe_load(result) or {}).get('repos', [])
+               if isinstance(entry.get('modules'), dict) for name, version in entry['modules'].items()}
 
-    if missed := sorted(url for url, version in versions.items() if written.get(url) != version):
+    if missed := sorted(name for name, version in versions.items() if written.get(name) != version):
         raise ManifestError(f"modules.yaml: cannot rewrite the version of {', '.join(missed)}; set it by hand")
 
     return result

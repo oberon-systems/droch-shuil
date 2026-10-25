@@ -21,7 +21,7 @@ def check_manifest(file: Path, modules_dir: Path) -> dict[str, Root]:
     """Validate modules.yaml and every module it declares, offline; the root of each module."""
     manifest = read_manifest(file)
     roots = get_roots(manifest, modules_dir)
-    local = {name for repo in manifest.repos if repo.local for name in repo.modules}
+    local = {name for repo in manifest.repos if repo.local for name in repo.names}
 
     if undeclared := sorted(set(get_names(modules_dir)) - set(roots)):
         raise ManifestError(f"modules.yaml: modules/{', modules/'.join(undeclared)} not declared; "
