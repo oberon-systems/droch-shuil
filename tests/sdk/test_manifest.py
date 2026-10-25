@@ -186,6 +186,14 @@ def test_a_meta_module_holds_its_requires_and_nothing_else(tmp_path):
         check_manifest(*files)
 
 
+def test_a_meta_module_keeps_its_release_files(tmp_path):
+    files = workspace(tmp_path, 'repos:\n  - repo: local\n    modules: [a]\n', {'a': ''})
+    (tmp_path / 'modules' / 'a' / '.cz.yaml').write_text('commitizen: {}\n')
+    (tmp_path / 'modules' / 'a' / 'CHANGELOG.md').write_text('## a-0.1.0\n')
+
+    assert set(check_manifest(*files)) == {'a'}
+
+
 def test_autoupdate_moves_each_module_on_its_own_and_keeps_the_layout(source):
     index = read_index(source[0])
     text = f'# pinned\nrepos:\n{entry(source[0])}  - repo:    local\n    modules: [a]\n'

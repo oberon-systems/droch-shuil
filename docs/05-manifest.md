@@ -103,7 +103,8 @@ connects to no node.
 - Every module with code implements the interfaces from
   [03-sdk.md](03-sdk.md), each method with its protocol's signature.
 - A module with no code has a `requires.yaml` and nothing but it, its
-  `README.md` and its `tests/`.
+  `README.md`, its `tests/` and its release files `.cz.yaml` and
+  `CHANGELOG.md`.
 - A module imports suil only through `suil.sdk` and `suil.testing`, in its
   code, its collector and its tests.
 - Nothing under a module's `code/` reads the node: `get_fact`,

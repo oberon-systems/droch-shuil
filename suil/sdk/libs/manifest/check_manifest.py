@@ -14,7 +14,7 @@ from .get_roots import get_roots
 from .read_manifest import read_manifest
 
 # Everything a module with no code may hold.
-META = {'requires.yaml', 'README.md', 'tests'}
+META = {'requires.yaml', 'README.md', 'tests', '.cz.yaml', 'CHANGELOG.md'}
 
 
 def check_manifest(file: Path, modules_dir: Path) -> dict[str, Root]:
