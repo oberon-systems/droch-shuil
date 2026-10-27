@@ -1,3 +1,9 @@
+## v0.7.3 (2026-10-27)
+
+### Bug Fixes
+
+- **suil**: release recorded in the repository's index.yaml, never merged into the live one
+
 ## v0.7.2 (2026-10-25)
 
 ### Bug Fixes
