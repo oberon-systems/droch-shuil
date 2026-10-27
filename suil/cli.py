@@ -1,7 +1,5 @@
 import logging
 
-from pathlib import Path
-
 import click
 import yaml
 
@@ -10,8 +8,8 @@ from suil.deployment import Deployment
 from suil.directory import Directory, counted
 from suil.errors import errors_handler
 from suil.log import OK, log_setup
-from suil.sdk.libs.manifest import (check_manifest, get_latest_version, install_module, pack_module, read_index,
-                                    read_manifest, set_versions, write_index)
+from suil.sdk.libs.manifest import (add_release, check_manifest, get_latest_version, install_module, pack_release,
+                                    read_index, read_manifest, set_versions)
 from suil.sdk.libs.module import get_order, get_requires
 from suil.sdk.libs.string import decrypt, encrypt
 from suil.tui import tui
@@ -163,23 +161,22 @@ def autoupdate(obj):
         log.log(OK, 'modules.yaml is up to date')
 
 
+@main.command('index')
+@click.argument('tag')
+@click.pass_obj
+def index_command(obj, tag):
+    """Record the release a <module>-<version> TAG names in index.yaml; cz bump runs it before its commit."""
+    workspace, _ = obj
+    log.log(OK, f'index.yaml: {tag} {add_release(tag, workspace.base_dir).sha256}')
+
+
 @main.command()
 @click.argument('tag')
-@click.argument('out_dir', type=click.Path(file_okay=False, path_type=Path))
 @click.pass_obj
-def pack(obj, tag, out_dir):
-    """Pack the module a <module>-<version> TAG names into an archive in OUT_DIR."""
+def pack(obj, tag):
+    """Pack the release a <module>-<version> TAG names into dist/, beside index.yaml, checked against it."""
     workspace, _ = obj
-    log.log(OK, f'{tag}: {pack_module(tag, workspace.modules_dir, out_dir)}')
-
-
-@main.command('index')
-@click.argument('out_dir', type=click.Path(exists=True, file_okay=False, path_type=Path))
-@click.option('--merge', help='URL of the source whose live index takes the archives; a missing one starts anew.')
-def index_command(out_dir, merge):
-    """Add every archive in OUT_DIR to its index.yaml."""
-    added = write_index(out_dir, merge)
-    log.log(OK, f"{out_dir / 'index.yaml'}: {', '.join(added) or 'nothing new'}")
+    log.log(OK, f'{tag}: {pack_release(tag, workspace.base_dir)}')
 
 
 @main.command()

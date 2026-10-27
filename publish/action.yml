@@ -1,17 +1,11 @@
 ---
 name: Publish a suil module
-description: Pack the module a <module>-<version> tag names and add it to the index of its source.
+description: Pack the release a <module>-<version> tag names into dist/, beside the index.yaml of the repository.
 
 inputs:
   tag:
     description: The <module>-<version> tag to pack.
     default: ${{ github.ref_name }}
-  index-url:
-    description: URL of the source whose live index the archive is added to; a missing index starts a new one.
-    default: ""
-  out-dir:
-    description: Directory the archive and index.yaml are written to.
-    default: dist
   suil-version:
     description: droch-shuil to install; empty takes the ref of this action without its v.
     default: ""
@@ -19,7 +13,7 @@ inputs:
 outputs:
   dir:
     description: Directory holding the archive and index.yaml, to upload.
-    value: ${{ inputs.out-dir }}
+    value: dist
 
 runs:
   using: composite
@@ -59,16 +53,8 @@ runs:
       shell: bash
       run: echo ~/.suil-venv/bin >>"$GITHUB_PATH"
 
-    - name: Pack the module
+    - name: Pack the release
       shell: bash
       env:
         TAG: ${{ inputs.tag }}
-        OUT: ${{ inputs.out-dir }}
-      run: suil pack "$TAG" "$OUT"
-
-    - name: Add it to the index
-      shell: bash
-      env:
-        OUT:       ${{ inputs.out-dir }}
-        INDEX_URL: ${{ inputs.index-url }}
-      run: suil index "$OUT" ${INDEX_URL:+--merge "$INDEX_URL"}
+      run: suil pack "$TAG"

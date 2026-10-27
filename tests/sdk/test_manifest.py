@@ -11,8 +11,8 @@ import pytest
 import yaml
 
 from suil.sdk.errors import ManifestError, ModuleError, ModuleOrderError
-from suil.sdk.libs.manifest import (check_manifest, get_latest_version, install_module, pack_module, read_index,
-                                    read_manifest, set_versions, write_index)
+from suil.sdk.libs.manifest import (add_release, check_manifest, get_latest_version, install_module, pack_module,
+                                    pack_release, read_index, read_manifest, set_versions)
 from suil.sdk.models import Index, Release
 
 
@@ -33,17 +33,22 @@ def serve(directory):
     return server, f'http://127.0.0.1:{server.server_port}'
 
 
+def release(base, name, version, requires='', extra=''):
+    module(base / 'modules', name, requires, extra)
+    (base / 'modules' / name / '.cz.yaml').write_text(f'commitizen:\n  version: {version}\n')
+    add_release(f'{name}-{version}', base)
+
+    return pack_release(f'{name}-{version}', base)
+
+
 @pytest.fixture
 def source(tmp_path):
-    """A source serving one 1.0.0 and 1.1.0 and two 1.0.0, packed from a module repository."""
-    repo, dist = tmp_path / 'src' / 'modules', tmp_path / 'dist'
-    module(repo, 'one', 'two')
-    module(repo, 'two')
-    pack_module('one-1.0.0', repo, dist)
-    pack_module('two-1.0.0', repo, dist)
-    module(repo, 'one', 'two', '# 1.1.0\n')
-    pack_module('one-1.1.0', repo, dist)
-    write_index(dist)
+    """A source serving one 1.0.0 and 1.1.0 and two 1.0.0, released from a module repository."""
+    base = tmp_path / 'src'
+    release(base, 'one', '1.0.0', 'two')
+    release(base, 'two', '1.0.0')
+    release(base, 'one', '1.1.0', 'two', '# 1.1.0\n')
+    dist = base / 'dist'
     server, url = serve(dist)
 
     yield url, dist, server
@@ -96,7 +101,7 @@ def test_an_install_replaces_what_is_there(tmp_path, source):
 
     install(file, modules)
 
-    assert sorted(path.name for path in (modules / 'one').iterdir()) == ['requires.yaml']
+    assert sorted(path.name for path in (modules / 'one').iterdir()) == ['.cz.yaml', 'requires.yaml']
 
 
 def test_a_version_missing_from_the_index_is_named(tmp_path, source):
@@ -239,37 +244,34 @@ def test_a_rebuild_has_the_same_sha256(tmp_path):
         assert sorted(tar.getnames()) == ['one', 'one/requires.yaml']
 
 
-def test_merge_keeps_the_live_releases(tmp_path, source):
-    url, *_ = source
-    repo = tmp_path / 'next' / 'modules'
-    module(repo, 'one', 'two', '# 1.2.0\n')
-    pack_module('one-1.2.0', repo, tmp_path / 'next' / 'dist')
+def test_a_release_is_recorded_beside_the_others(source):
+    _, dist, _ = source
+    index = yaml.safe_load((dist / 'index.yaml').read_text())
 
-    assert write_index(tmp_path / 'next' / 'dist', url) == ['one-1.2.0']
-
-    index = yaml.safe_load((tmp_path / 'next' / 'dist' / 'index.yaml').read_text())
-
-    assert [release['version'] for release in index['modules']['one']] == ['1.2.0', '1.1.0', '1.0.0']
-    assert [release['version'] for release in index['modules']['two']] == ['1.0.0']
+    assert [known['version'] for known in index['modules']['one']] == ['1.1.0', '1.0.0']
+    assert [known['version'] for known in index['modules']['two']] == ['1.0.0']
+    assert sorted(path.name for path in dist.glob('*.tar.gz')) == ['one-1.0.0.tar.gz', 'one-1.1.0.tar.gz',
+                                                                   'two-1.0.0.tar.gz']
 
 
-def test_merge_with_no_live_index_starts_one(tmp_path, source):
-    url, *_ = source
-    repo = tmp_path / 'next' / 'modules'
-    module(repo, 'one')
-    pack_module('one-1.0.0', repo, tmp_path / 'next' / 'dist')
-
-    assert write_index(tmp_path / 'next' / 'dist', f'{url}/nowhere') == ['one-1.0.0']
+def test_a_tag_off_the_module_version_is_refused(tmp_path, source):
+    with pytest.raises(ManifestError, match='is at 1.1.0, not 1.2.0'):
+        add_release('one-1.2.0', tmp_path / 'src')
 
 
-def test_a_released_version_with_other_bytes_is_refused(tmp_path, source):
-    url, *_ = source
-    repo = tmp_path / 'next' / 'modules'
-    module(repo, 'one', 'two', '# changed\n')
-    pack_module('one-1.1.0', repo, tmp_path / 'next' / 'dist')
+def test_a_module_changed_after_its_release_is_not_packed(tmp_path, source):
+    (tmp_path / 'src' / 'modules' / 'one' / 'requires.yaml').write_text('requires: []\n')
 
-    with pytest.raises(ManifestError, match='already released with another sha256'):
-        write_index(tmp_path / 'next' / 'dist', url)
+    with pytest.raises(ManifestError, match='differs from what index.yaml records'):
+        pack_release('one-1.1.0', tmp_path / 'src')
+
+
+def test_a_tag_index_yaml_does_not_hold_is_not_packed(tmp_path):
+    module(tmp_path / 'modules', 'one')
+    (tmp_path / 'modules' / 'one' / '.cz.yaml').write_text('commitizen:\n  version: 1.0.0\n')
+
+    with pytest.raises(ManifestError, match='not in index.yaml'):
+        pack_release('one-1.0.0', tmp_path)
 
 
 @pytest.mark.parametrize('path, source, error', [

@@ -116,55 +116,59 @@ catalogue.
 
 ## Publishing
 
-A module repository keeps its modules under `modules/<name>` and releases one
-with `cz bump` in that directory, which commits and tags `<name>-<version>`.
-CI turns the pushed tag into what the source serves, with two commands that
-need neither Git nor the old archives:
+A module repository keeps its modules under `modules/<name>` and its
+`index.yaml` at the root, committed. A module is released with `cz bump` in
+its directory: the version comes from the `version:` of its `.cz.yaml`, and a
+pre-bump hook records the release in `index.yaml`, so the bump commit and its
+tag `<name>-<version>` carry the index. Publishing packs the tagged module
+and uploads it with that `index.yaml`; the live source is never read back.
 
-```shell
-suil pack hostname-0.1.1 dist/                          # dist/hostname-0.1.1.tar.gz
-suil index dist/ --merge https://modules.example.com/suil   # dist/index.yaml
+```yaml
+# modules/<name>/.cz.yaml
+commitizen:
+  version:        0.1.0
+  tag_format:     <name>-$version
+  pre_bump_hooks:
+    - cd ../.. && .venv/bin/suil index "$CZ_PRE_NEW_TAG_VERSION" && git add index.yaml
 ```
 
-- `suil pack TAG OUT_DIR` - run at the root of the module repository. The
-  module is the directory under `modules/` the tag starts with, followed by a
-  semver version, so `nginx-extra-1.0.0` is never `nginx`. The archive has the
-  same bytes on every build: sorted entries, mtime 0, owner 0, no
-  `__pycache__`.
-- `suil index OUT_DIR [--merge URL]` - adds every archive in `OUT_DIR` to the
-  live index of the source at `URL`, or to `OUT_DIR/index.yaml`, and writes
-  `OUT_DIR/index.yaml`. A source with no index yet starts a new one. A
-  version already released with other bytes is an error.
+```shell
+suil index hostname-0.1.1   # index.yaml: hostname 0.1.1 and its sha256
+suil pack hostname-0.1.1    # dist/hostname-0.1.1.tar.gz and dist/index.yaml
+```
 
-Uploading `dist/` is the publisher's: suil names no host.
+Both run at the root of the module repository.
+
+- `suil index TAG` - the module is the directory under `modules/` the tag
+  starts with, followed by a semver version, so `nginx-extra-1.0.0` is never
+  `nginx`; the version must be the one in its `.cz.yaml`. It packs the module
+  and adds or replaces its release in `index.yaml`, every other release kept.
+- `suil pack TAG` - packs the same module into `dist/` and copies
+  `index.yaml` beside it. A release `index.yaml` does not hold, or a module
+  whose bytes differ from what it records, is an error: the module changed
+  after its bump. The archive has the same bytes on every build: sorted
+  entries, mtime 0, owner 0, no `__pycache__`.
+
+Uploading `dist/` is the publisher's: suil names no host. The upload adds the
+archive and replaces `index.yaml`; the archives already there stay.
 
 ### On any CI
 
-Any CI, or a workstation, runs the same four steps on a checkout of the
-module repository at the tag; the GitHub action below is these steps.
+Any CI, or a workstation, runs the same steps on a checkout of the module
+repository at the tag; the GitHub action below is these steps.
 
 ```shell
-pip install droch-shuil                      # Python 3.11 or newer
-suil pack "$TAG" dist/                       # TAG is <module>-<version>
-suil index dist/ --merge "$SOURCE_URL"       # the live index, or a new one
-rsync -a dist/ "$UPLOAD_TARGET"              # or any upload that reaches SOURCE_URL
+pip install droch-shuil          # Python 3.11 or newer
+suil pack "$TAG"                 # TAG is <module>-<version>
+rsync -a dist/ "$UPLOAD_TARGET"  # or any upload that reaches the source URL
 ```
-
-- `TAG` - the pushed tag; every CI exposes it, for example `CI_COMMIT_TAG` in
-  GitLab, `TAG_NAME` in Jenkins, `CI_COMMIT_TAG` in Woodpecker.
-- `SOURCE_URL` - the URL the workspaces put in `repo:` of `modules.yaml`.
-- The upload must leave the existing archives in place and replace only
-  `index.yaml`: `dist/` holds the new archive and the merged index, not the
-  old archives.
-- Publishes must not run in parallel, so two tags never merge the index at
-  once: one job at a time per repository.
 
 ### GitHub Actions
 
-droch-shuil ships the first three steps as the action `publish`. Its venv is
-cached in the calling repository, so a release installs droch-shuil once per
-version. The upload is the next step, with whatever action reaches the
-source; here the source is a GitHub release:
+droch-shuil ships the packing as the action `publish`. Its venv is cached in
+the calling repository, so a release installs droch-shuil once per version.
+The upload is the next step, with whatever action reaches the source; here
+the source is a GitHub release:
 
 ```yaml
 on:
@@ -183,9 +187,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - id: suil
-        uses: oberon-systems/droch-shuil/publish@v0.7.1
-        with:
-          index-url: ${{ github.server_url }}/${{ github.repository }}/releases/download/modules
+        uses: oberon-systems/droch-shuil/publish@v0.7.3
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: modules
@@ -207,15 +209,15 @@ publish:
     - if: $CI_COMMIT_TAG
   script:
     - pip install droch-shuil
-    - suil pack "$CI_COMMIT_TAG" dist/
-    - suil index dist/ --merge "$SOURCE_URL"
+    - suil pack "$CI_COMMIT_TAG"
     - rsync -a dist/ "$UPLOAD_TARGET"
 ```
 
 ### Locally
 
 The same steps by hand, from the root of the module repository checked out at
-the tag. The GitHub workflow itself runs on a workstation with
+the tag. The GitHub
+workflow itself runs on a workstation with
 [act](https://github.com/nektos/act), given a tag push event:
 
 ```shell
