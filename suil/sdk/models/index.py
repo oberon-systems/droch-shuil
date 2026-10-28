@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from .release import Release
 
@@ -8,4 +8,5 @@ class Index(BaseModel):
 
     model_config = ConfigDict(extra='forbid')
 
-    modules: dict[str, list[Release]] = {}
+    modules:  dict[str, list[Release]] = {}
+    modified: str | None = Field(default=None, exclude=True)
