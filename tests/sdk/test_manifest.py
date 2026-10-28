@@ -111,6 +111,13 @@ def test_a_version_missing_from_the_index_is_named(tmp_path, source):
         install(file, modules)
 
 
+def test_an_index_read_from_a_source_knows_when_it_was_modified(source):
+    index = read_index(source[0])
+
+    assert index.modified
+    assert 'modified' not in index.model_dump()
+
+
 def test_a_wrong_sha256_lays_nothing(tmp_path, source):
     url, *_ = source
     index = read_index(url)

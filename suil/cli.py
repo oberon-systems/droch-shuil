@@ -146,6 +146,7 @@ def autoupdate(obj):
             continue
 
         index = read_index(repo.repo)
+        log.info(f'{repo.repo}: index.yaml modified {index.modified or "at an unknown time"}')
 
         for name, version in repo.modules.items():
             if not (latest := get_latest_version(index, name)):
