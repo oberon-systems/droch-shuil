@@ -118,8 +118,9 @@ def modules(obj):
 
 
 @main.command()
+@click.option('--force', is_flag=True, help='Lay every module again, even one already at its version.')
 @click.pass_obj
-def install(obj):
+def install(obj, force):
     """Lay the modules of every source in modules.yaml into modules/."""
     workspace, _ = obj
 
@@ -130,8 +131,10 @@ def install(obj):
         index = read_index(repo.repo)
 
         for name, version in repo.modules.items():
-            install_module(repo.repo, index, name, version, workspace.modules_dir)
-            log.log(OK, f'{name} {version}: {repo.repo}')
+            if install_module(repo.repo, index, name, version, workspace.modules_dir, force):
+                log.log(OK, f'{name} {version}: {repo.repo}')
+            else:
+                log.info(f'{name} {version}: already installed, skipped')
 
 
 @main.command()
