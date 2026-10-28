@@ -81,6 +81,13 @@ module at its version, checks its `sha256`, and lays it into `modules/`,
 replacing what is there. It does nothing for `local`. An archive whose digest
 differs, or that holds anything besides its module, lays nothing.
 
+A module whose `.cz.yaml` in `modules/` already names its version is skipped
+and reported as `already installed, skipped`; nothing is downloaded for it.
+`suil install --force` lays every module again, edits made by hand included.
+
+The index is read past any cache on the way, and `suil autoupdate` prints
+when it was last modified, so an index served stale shows itself.
+
 `suil autoupdate` moves every module of a source to the newest version in the
 index, compared by semver, and rewrites `modules.yaml` line by line, so its
 layout and comments stay; nothing else changes a version.

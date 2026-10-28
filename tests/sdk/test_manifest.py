@@ -104,6 +104,19 @@ def test_an_install_replaces_what_is_there(tmp_path, source):
     assert sorted(path.name for path in (modules / 'one').iterdir()) == ['.cz.yaml', 'requires.yaml']
 
 
+def test_a_module_already_at_its_version_is_skipped_unless_forced(tmp_path, source):
+    url, *_ = source
+    index = read_index(url)
+    install_module(url, index, 'two', '1.0.0', tmp_path / 'modules')
+    (tmp_path / 'modules' / 'two' / 'stale').write_text('')
+
+    assert not install_module(url, index, 'two', '1.0.0', tmp_path / 'modules')
+    assert (tmp_path / 'modules' / 'two' / 'stale').exists()
+
+    assert install_module(url, index, 'two', '1.0.0', tmp_path / 'modules', force=True)
+    assert not (tmp_path / 'modules' / 'two' / 'stale').exists()
+
+
 def test_a_version_missing_from_the_index_is_named(tmp_path, source):
     file, modules = workspace(tmp_path, 'repos:\n' + entry(source[0], one='9.9.9'))
 
