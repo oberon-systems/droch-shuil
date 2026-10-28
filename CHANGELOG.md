@@ -1,3 +1,13 @@
+## v0.8.0 (2026-10-28)
+
+### Features
+
+- **suil**: install skips modules already at their version, --force lays all again
+
+### Bug Fixes
+
+- **suil**: index.yaml read past caches, autoupdate shows when it was modified
+
 ## v0.7.3 (2026-10-27)
 
 ### Bug Fixes
