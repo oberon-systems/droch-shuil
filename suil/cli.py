@@ -1,8 +1,11 @@
 import logging
 
+from importlib import metadata
+
 import click
 import yaml
 
+from suil import completion
 from suil.config import Config
 from suil.deployment import Deployment
 from suil.directory import Directory, counted
@@ -25,8 +28,7 @@ def _selection(function):
     return function
 
 
-@click.group(invoke_without_command=True)
-@click.version_option(package_name='droch-shuil', prog_name='suil')
+@click.group(invoke_without_command=True, context_settings={'help_option_names': []})
 @click.pass_context
 def main(ctx):
     """Suil: an infrastructure manager."""
@@ -216,6 +218,40 @@ def decrypt_command(obj, value):
     """Decrypt a string with SUIL_AGE_KEY."""
     _, settings = obj
     print(decrypt(value, settings.age_key))
+
+
+@main.command('completion')
+@click.argument('shell', required=False, type=click.Choice(completion.SHELLS))
+def completion_command(shell):
+    """Install Tab completion for SHELL (the login shell by default)."""
+    shell = shell or completion.detect_shell()
+
+    if shell not in completion.SHELLS:
+        raise click.UsageError(f"cannot tell the shell from SHELL, name one of: {', '.join(completion.SHELLS)}")
+
+    log.log(OK, f'{shell}: completion written to {completion.install(main, shell)}, open a new shell')
+
+    if shell == 'zsh':
+        log.warning('zsh: add fpath+=(~/.zfunc) before compinit in ~/.zshrc')
+
+
+@main.command('version')
+def version_command():
+    """Print the version of suil."""
+    print(f"suil, version {metadata.version('droch-shuil')}")
+
+
+@main.command('help')
+@click.argument('command', required=False, type=click.Choice(sorted(main.commands)))
+@click.pass_context
+def help_command(ctx, command):
+    """Show the help of suil or of a COMMAND."""
+    if not command:
+        print(ctx.parent.get_help())
+        return
+
+    sub = main.get_command(ctx.parent, command)
+    print(sub.get_help(click.Context(sub, info_name=command, parent=ctx.parent)))
 
 
 def _roots(workspace):

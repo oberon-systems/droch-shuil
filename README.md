@@ -19,6 +19,12 @@ pip install droch-shuil
 The package is published as `droch-shuil` and imported as `suil`. It installs
 the same command under two names, `suil` and `droch-shuil`.
 
+Tab completion for `suil` is a separate step, for `bash`, `zsh` or `fish`:
+
+```bash
+suil completion
+```
+
 ## Development
 
 ```bash

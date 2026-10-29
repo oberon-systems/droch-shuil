@@ -192,7 +192,9 @@ suil facts --node web-01.example.com
 suil nodes
 suil modules
 suil init
-suil --version
+suil completion
+suil help apply
+suil version
 suil
 ```
 
@@ -214,7 +216,16 @@ suil
   `data/common.yaml` with the default hierarchy, the layer directories
   under `data/` and `modules/`. `modules.yaml` is yours to write. It writes
   nothing where `data/`, `modules/` or `modules.yaml` already is.
-- `--version` prints the version of the installed package.
+- `completion` installs Tab completion for `bash`, `zsh` or `fish`, the
+  login shell by default, where the shell loads it from; zsh also needs
+  `fpath+=(~/.zfunc)` before `compinit`. The script holds every command
+  and option, so Tab never starts Python; roles and nodes come from
+  `data/roles/` and `data/nodes/` of the current directory. The script
+  carries the version it was made for; when the shell loads it and
+  `suil version` names another one, it runs `suil completion` and loads
+  what that wrote.
+- `version` prints the version of the installed package, `help` the help
+  of suil or of one command.
 - `suil` with no command opens the interactive mode. It asks for one role,
   shows the run and asks before it applies.
 

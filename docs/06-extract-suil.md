@@ -63,7 +63,7 @@ workspace rather than suil itself.
 - A `vX.Y.Z` tag runs `.github/workflows/publish.yml`. It checks that the
   tag matches the version in `pyproject.toml`, builds the sdist and the
   wheel, installs the wheel into a fresh virtual environment, runs
-  `suil --help` and `droch-shuil --help`, and publishes to PyPI through
+  `suil help` and `droch-shuil help`, and publishes to PyPI through
   trusted publishing.
 - A push to `main` that changes `docs/`, `README.md` or `mkdocs.yml`
   publishes the documentation to GitHub Pages.
@@ -87,7 +87,7 @@ No module leaves the workspace in this step.
 ## Acceptance
 
 - A fresh virtual environment installs `droch-shuil` from PyPI and runs
-  `suil --help` and `droch-shuil --help`.
+  `suil help` and `droch-shuil help`.
 - No import or path in the suil repository refers to the workspace.
 - The workspace's `make install` and `make test` pass with the released
   package, and a full role `suil apply --dry-run` writes the same `.runs/`

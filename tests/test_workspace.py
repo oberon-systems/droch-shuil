@@ -96,7 +96,7 @@ def test_init_refuses_where_a_workspace_already_is(tmp_path, present):
 
 
 def test_version_is_the_one_of_the_installed_package():
-    result = CliRunner().invoke(main, ['--version'])
+    result = CliRunner().invoke(main, ['version'])
 
     assert result.exit_code == 0
     assert result.output.strip() == f"suil, version {version('droch-shuil')}"
