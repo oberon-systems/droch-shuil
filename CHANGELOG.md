@@ -1,3 +1,10 @@
+## v0.9.0 (2026-10-30)
+
+### Features
+
+- **suil**: index keeps only the newest release of a module
+- **suil**: completion installs a static Tab script, help and version are commands
+
 ## v0.8.0 (2026-10-28)
 
 ### Features
