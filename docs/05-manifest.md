@@ -149,7 +149,7 @@ Both run at the root of the module repository.
 - `suil index TAG` - the module is the directory under `modules/` the tag
   starts with, followed by a semver version, so `nginx-extra-1.0.0` is never
   `nginx`; the version must be the one in its `.cz.yaml`. It packs the module
-  and adds or replaces its release in `index.yaml`, every other release kept.
+  and records it in `index.yaml` as the module's only release.
 - `suil pack TAG` - packs the same module into `dist/` and copies
   `index.yaml` beside it. A release `index.yaml` does not hold, or a module
   whose bytes differ from what it records, is an error: the module changed
@@ -157,7 +157,8 @@ Both run at the root of the module repository.
   entries, mtime 0, owner 0, no `__pycache__`.
 
 Uploading `dist/` is the publisher's: suil names no host. The upload adds the
-archive and replaces `index.yaml`; the archives already there stay.
+archive and replaces `index.yaml`, and the publisher removes the archives
+`index.yaml` no longer lists, so a source serves the newest release only.
 
 ### On any CI
 
@@ -199,6 +200,14 @@ jobs:
         with:
           tag_name: modules
           files: ${{ steps.suil.outputs.dir }}/*
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          listed=$(grep -oE '[^ ]+\.tar\.gz' index.yaml)
+          gh release view modules --json assets --jq '.assets[].name' | grep '\.tar\.gz$' |
+            while read -r name; do
+              grep -qxF "$name" <<<"$listed" || gh release delete-asset modules "$name" --yes
+            done
 ```
 
 The action installs the droch-shuil of its own ref, so pin it to a tag, or

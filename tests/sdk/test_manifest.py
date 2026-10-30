@@ -43,7 +43,7 @@ def release(base, name, version, requires='', extra=''):
 
 @pytest.fixture
 def source(tmp_path):
-    """A source serving one 1.0.0 and 1.1.0 and two 1.0.0, released from a module repository."""
+    """A source serving one 1.1.0, released after 1.0.0, and two 1.0.0, from a module repository."""
     base = tmp_path / 'src'
     release(base, 'one', '1.0.0', 'two')
     release(base, 'two', '1.0.0')
@@ -95,7 +95,7 @@ def test_a_source_lays_its_modules_into_modules_and_validates_with_the_server_go
 
 
 def test_an_install_replaces_what_is_there(tmp_path, source):
-    file, modules = workspace(tmp_path, 'repos:\n' + entry(source[0]))
+    file, modules = workspace(tmp_path, 'repos:\n' + entry(source[0], one='1.1.0'))
     module(modules, 'one')
     (modules / 'one' / 'stale').write_text('')
 
@@ -264,14 +264,12 @@ def test_a_rebuild_has_the_same_sha256(tmp_path):
         assert sorted(tar.getnames()) == ['one', 'one/requires.yaml']
 
 
-def test_a_release_is_recorded_beside_the_others(source):
+def test_a_release_replaces_the_older_ones(source):
     _, dist, _ = source
     index = yaml.safe_load((dist / 'index.yaml').read_text())
 
-    assert [known['version'] for known in index['modules']['one']] == ['1.1.0', '1.0.0']
+    assert [known['version'] for known in index['modules']['one']] == ['1.1.0']
     assert [known['version'] for known in index['modules']['two']] == ['1.0.0']
-    assert sorted(path.name for path in dist.glob('*.tar.gz')) == ['one-1.0.0.tar.gz', 'one-1.1.0.tar.gz',
-                                                                   'two-1.0.0.tar.gz']
 
 
 def test_a_tag_off_the_module_version_is_refused(tmp_path, source):
