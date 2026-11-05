@@ -3,5 +3,5 @@ build==1.6.1
 commitizen==4.19.3
 mkdocs==1.6.1
 pre-commit==4.7.0
-pytest==9.1.1
+pytest==9.2.0
 wyld-cz==0.4.1
