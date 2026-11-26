@@ -1,6 +1,6 @@
 # Development tooling. suil's own dependencies live in pyproject.toml.
 build==1.6.1
-commitizen==4.19.3
+commitizen==4.19.4
 mkdocs==1.6.1
 pre-commit==4.7.0
 pytest==9.2.0
